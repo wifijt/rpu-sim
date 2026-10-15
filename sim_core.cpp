@@ -24,6 +24,10 @@
 #include <fstream>
 #include <sstream>
 #include <cstdarg>
+#include <thread>
+#include <iostream>
+#include <mutex>
+#include <chrono>
 
 #include "Arduino.h"
 #include "EEPROM.h"
@@ -70,6 +74,8 @@ static std::string NameOf(const char *prefix, int value) {
 }
 
 // ------------------------------------------------------------------ log
+static std::vector<int> LiveFired, LiveSounds;   // live mode: coils fired and tracks started since the last frame
+static bool LiveMode = false;
 static unsigned long SimNow = 0;
 static std::vector<std::string> SimLog;
 static bool SimEcho = false;
@@ -140,6 +146,7 @@ static void WavStopTrack(int track) {
 }
 
 static void WavPlay(int track, bool solo) {
+  if (LiveMode) LiveSounds.push_back(track);
   if (solo) for (int v = 0; v < SIM_WAV_VOICES; v++) if (SimVoices[v].track) WavStopTrack(SimVoices[v].track);
   WavStopTrack(track);
   for (int v = 0; v < SIM_WAV_VOICES; v++) {
@@ -298,6 +305,7 @@ static bool FlippersDisabled = true;
 static unsigned long SolenoidFireCount[32];
 
 static void FireSolenoid(byte sol, const char *why) {
+  if (LiveMode) LiveFired.push_back(sol);
   Log("SOL fire %s%s%s", NameOf("SOL_", sol).c_str(), why[0] ? " by " : "", why);
   if (sol < 32) SolenoidFireCount[sol] += 1;
   for (const SimPhysics &p : Physics) {
@@ -913,14 +921,129 @@ static void RunFile(const std::string &path) {
   }
 }
 
+
+// ------------------------------------------------------------------ live mode
+// sim --live [setup.sim]: run in real time for a front end (play.py). Commands arrive on stdin,
+// one per line: "close SW", "open SW", "press SW" (closed for 80 ms), or any scenario command.
+// Every 33 ms a JSON frame goes to stdout: lamps, displays, closed switches, coils fired, sounds,
+// new log lines. The first line is the names table.
+static std::mutex LiveLock;
+static std::deque<std::string> LiveInbox;
+
+static std::string JsonEsc(const std::string &t) {
+  std::string o;
+  for (char c : t) {
+    if (c == '"' || c == '\\') { o += '\\'; o += c; }
+    else if ((unsigned char)c < 0x20) o += ' ';
+    else if ((unsigned char)c < 0x80) o += c;
+    else o += '?';
+  }
+  return o;
+}
+
+static void LiveNames() {
+  std::string o = "{\"names\":{";
+  bool first = true;
+  for (const SimName *n = SimNames; n->name; n++) {
+    o += first ? "" : ","; first = false;
+    o += "\"" + JsonEsc(n->name) + "\":" + std::to_string(n->value);
+  }
+  o += "},\"lamps\":" + std::to_string(RPU_MAX_LAMPS) + ",\"digits\":" + std::to_string(RPU_OS_NUM_DIGITS) + "}";
+  printf("%s\n", o.c_str());
+  fflush(stdout);
+}
+
+static size_t LiveLogFrom = 0;
+static void LiveFrame() {
+  std::string o = "{\"t\":" + std::to_string(SimNow) + ",\"state\":" + std::to_string((int)MachineState);
+  o += ",\"ball\":" + std::to_string((int)CurrentBallInPlay) + ",\"player\":" + std::to_string((int)CurrentPlayer + 1);
+  o += ",\"credits\":" + std::to_string(CreditsShown) + ",\"bip\":" + std::to_string(BallInPlayShown);
+  o += ",\"lamps\":\"";
+  for (int l = 0; l < RPU_MAX_LAMPS; l++) {
+    bool on = LampOn[l] && (!LampFlash[l] || (SimNow / (unsigned long)LampFlash[l]) % 2 == 0);
+    o += on ? (LampDim[l] ? 'd' : '1') : '0';
+  }
+  o += "\",\"disp\":[";
+  for (int d = 0; d < 5; d++) o += (d ? ",\"" : "\"") + DisplayText(d) + "\"";
+  o += "],\"sw\":[";
+  bool first = true;
+  for (int sw = 0; sw < SIM_NUM_SWITCHES; sw++) if (SwitchState[sw]) { o += (first ? "" : ","); o += std::to_string(sw); first = false; }
+  o += "],\"fired\":[";
+  for (size_t k = 0; k < LiveFired.size(); k++) o += (k ? "," : "") + std::to_string(LiveFired[k]);
+  o += "],\"sounds\":[";
+  for (size_t k = 0; k < LiveSounds.size(); k++) o += (k ? "," : "") + std::to_string(LiveSounds[k]);
+  o += "],\"log\":[";
+  for (size_t k = LiveLogFrom; k < SimLog.size(); k++) {
+    if (SimLog[k].find(" LAMP ") != std::string::npos) continue;
+    o += (k > LiveLogFrom ? "," : "") + std::string("\"") + JsonEsc(SimLog[k]) + "\"";
+  }
+  o += "]}";
+  if (o.find("[,") != std::string::npos) o.replace(o.find("[,"), 2, "[");
+  LiveLogFrom = SimLog.size();
+  LiveFired.clear(); LiveSounds.clear();
+  printf("%s\n", o.c_str());
+  fflush(stdout);
+}
+
+static void LiveRun(const std::string &setup) {
+  LiveMode = true;
+  SoftFail = true;
+  LiveNames();
+  if (!setup.empty()) {
+    try { RunFile(setup); } catch (SimCheckFailed &f) { printf("{\"error\":\"%s\"}\n", JsonEsc(f.why).c_str()); }
+  }
+  Boot();
+  std::thread([] {
+    std::string line;
+    while (std::getline(std::cin, line)) { std::lock_guard<std::mutex> g(LiveLock); LiveInbox.push_back(line); }
+    std::lock_guard<std::mutex> g(LiveLock); LiveInbox.push_back("quit");
+  }).detach();
+  std::map<int, unsigned long> releaseAt;               // pressed switches: open again at this time
+  auto start = std::chrono::steady_clock::now();
+  unsigned long startMs = SimNow, nextFrame = SimNow;
+  for (;;) {
+    std::deque<std::string> todo;
+    { std::lock_guard<std::mutex> g(LiveLock); todo.swap(LiveInbox); }
+    for (const std::string &line : todo) {
+      std::istringstream in(line);
+      std::string cmd, name; in >> cmd >> name;
+      if (cmd == "quit") return;
+      bool ok = true;
+      int n = LookupName(name, &ok);
+      if (cmd == "close" && ok) SimCloseSwitch(n);
+      else if (cmd == "open" && ok) SimOpenSwitch(n);
+      else if (cmd == "press" && ok) { SimCloseSwitch(n); releaseAt[n] = SimNow + 80; }
+      else if (cmd == "toggle" && ok) { if (n >= 0 && n < SIM_NUM_SWITCHES && SwitchState[n]) SimOpenSwitch(n); else SimCloseSwitch(n); }
+      else {
+        try { RunCommand(line, "."); } catch (SimCheckFailed &f) { printf("{\"error\":\"%s\"}\n", JsonEsc(f.why).c_str()); }
+      }
+    }
+    // keep game time level with the wall clock: one loop() pass per simulated millisecond
+    unsigned long wall = startMs + (unsigned long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+    int passes = 0;
+    while (SimNow < wall && passes < 200) {
+      SimNow += 1; LoopPass += 1; WavTick(); loop(); passes++;
+      for (auto it = releaseAt.begin(); it != releaseAt.end();) {
+        if (SimNow >= it->second) { SimOpenSwitch(it->first); it = releaseAt.erase(it); } else ++it;
+      }
+    }
+    if (SimNow >= nextFrame) { LiveFrame(); nextFrame = SimNow + 33; }
+    if (SimLog.size() > 20000) { SimLog.erase(SimLog.begin(), SimLog.begin() + 10000); LiveLogFrom = LiveLogFrom > 10000 ? LiveLogFrom - 10000 : 0; }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+}
+
 int main(int argc, char **argv) {
   memset(SimEEPROMData, 0xFF, sizeof(SimEEPROMData));
   bool verbose = false;
   std::vector<std::string> files;
+  bool live = false;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-v") == 0) verbose = true;
+    else if (strcmp(argv[i], "--live") == 0) live = true;
     else files.push_back(argv[i]);
   }
+  if (live) { LiveRun(files.empty() ? "" : files[0]); return 0; }
   if (files.size() != 1) {
     printf("usage: sim [-v] scenario.sim     (one scenario per run: the sketch can't be restarted)\n");
     return 2;

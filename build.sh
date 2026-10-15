@@ -41,10 +41,17 @@ if [ -n "$MACHINES_LIB" ]; then
   LIBFLAGS+=(--library "$MACHINES_LIB"); INCFLAGS+=(-I"$MACHINES_LIB/src")
   # the log names a number from the first header that defines it: the machine library's
   # names lead when the sketch is built for one of its machines (SIM_DEFINES)
-  case "${SIM_DEFINES:-}" in
-    *MACHINE_*) HEADERS=("$MACHINES_LIB"/src/*.h "${HEADERS[@]}") ;;
-    *) HEADERS+=("$MACHINES_LIB"/src/*.h) ;;
-  esac
+  # only the machine headers this sketch includes
+  MHEADERS=()
+  for h in "$MACHINES_LIB"/src/*.h; do
+    if grep -qsE "#include[[:space:]]*[<\"]$(basename "$h")[>\"]" "$SKETCH"/*.ino "$SKETCH"/*.h; then MHEADERS+=("$h"); fi
+  done
+  if [ ${#MHEADERS[@]} -gt 0 ]; then
+    case "${SIM_DEFINES:-}" in
+      *MACHINE_*) HEADERS=("${MHEADERS[@]}" "${HEADERS[@]}") ;;
+      *) HEADERS+=("${MHEADERS[@]}") ;;
+    esac
+  fi
 fi
 mkdir -p "$OUT"
 

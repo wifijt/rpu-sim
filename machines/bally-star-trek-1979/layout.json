@@ -1,0 +1,351 @@
+{
+ "machine": "Bally Star Trek (1979)",
+ "names": "bally-star-trek-1979.json",
+ "aspect": 2.0959,
+ "source": "Positions read from the Bally manual's playfield drawing (Figure V). Lamps are placed in the lamp bank until positioned with the layout editor.",
+ "cabinet": [
+  {
+   "label": "Start",
+   "sw": 5,
+   "key": "1"
+  },
+  {
+   "label": "Coin",
+   "sw": 9,
+   "key": "5"
+  },
+  {
+   "label": "Tilt",
+   "sw": 6,
+   "key": "t"
+  },
+  {
+   "label": "Slam",
+   "sw": 15
+  }
+ ],
+ "items": [
+  {
+   "kind": "bumper",
+   "x": 0.3908,
+   "y": 0.2525,
+   "r": 0.051
+  },
+  {
+   "kind": "bumper",
+   "x": 0.642,
+   "y": 0.2525,
+   "r": 0.051
+  },
+  {
+   "kind": "bumper",
+   "x": 0.5303,
+   "y": 0.3474,
+   "r": 0.051
+  },
+  {
+   "kind": "saucer",
+   "x": 0.5704,
+   "y": 0.1604,
+   "r": 0.0316
+  },
+  {
+   "kind": "sling",
+   "x": 0.2269,
+   "y": 0.7365,
+   "w": 0.0728,
+   "h": 0.2063,
+   "angle": -28
+  },
+  {
+   "kind": "sling",
+   "x": 0.676,
+   "y": 0.7365,
+   "w": 0.0728,
+   "h": 0.2063,
+   "angle": 28
+  },
+  {
+   "kind": "flipper",
+   "x": 0.318,
+   "y": 0.8494,
+   "w": 0.1456,
+   "h": 0.0316,
+   "angle": 25
+  },
+  {
+   "kind": "flipper",
+   "x": 0.5631,
+   "y": 0.8494,
+   "w": 0.1456,
+   "h": 0.0316,
+   "angle": -25
+  },
+  {
+   "kind": "switch",
+   "n": 0,
+   "x": 0.2209,
+   "y": 0.4673,
+   "shape": "drop"
+  },
+  {
+   "kind": "switch",
+   "n": 1,
+   "x": 0.2391,
+   "y": 0.4412,
+   "shape": "drop"
+  },
+  {
+   "kind": "switch",
+   "n": 2,
+   "x": 0.2367,
+   "y": 0.4163,
+   "shape": "drop"
+  },
+  {
+   "kind": "switch",
+   "n": 3,
+   "x": 0.2367,
+   "y": 0.3978,
+   "shape": "drop"
+  },
+  {
+   "kind": "switch",
+   "n": 4,
+   "x": 0.9381,
+   "y": 0.3584,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 7,
+   "x": 0.4842,
+   "y": 0.9548,
+   "shape": "hole"
+  },
+  {
+   "kind": "switch",
+   "n": 17,
+   "x": 0.1383,
+   "y": 0.1807,
+   "shape": "button"
+  },
+  {
+   "kind": "switch",
+   "n": 21,
+   "x": 0.1917,
+   "y": 0.1378,
+   "shape": "button"
+  },
+  {
+   "kind": "switch",
+   "n": 18,
+   "x": 0.7682,
+   "y": 0.7742,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 19,
+   "x": 0.1335,
+   "y": 0.7713,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 20,
+   "x": 0.2609,
+   "y": 0.1992,
+   "shape": "target"
+  },
+  {
+   "kind": "switch",
+   "n": 22,
+   "x": 0.0995,
+   "y": 0.4412,
+   "shape": "rubber"
+  },
+  {
+   "kind": "switch",
+   "n": 22,
+   "x": 0.6857,
+   "y": 0.1778,
+   "shape": "rubber"
+  },
+  {
+   "kind": "switch",
+   "n": 22,
+   "x": 0.7646,
+   "y": 0.6005,
+   "shape": "rubber"
+  },
+  {
+   "kind": "switch",
+   "n": 23,
+   "x": 0.5279,
+   "y": 0.4129,
+   "shape": "target"
+  },
+  {
+   "kind": "switch",
+   "n": 24,
+   "x": 0.1214,
+   "y": 0.399,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 25,
+   "x": 0.0485,
+   "y": 0.399,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 26,
+   "x": 0.7451,
+   "y": 0.5136,
+   "shape": "target"
+  },
+  {
+   "kind": "switch",
+   "n": 27,
+   "x": 0.7124,
+   "y": 0.4876,
+   "shape": "target"
+  },
+  {
+   "kind": "switch",
+   "n": 28,
+   "x": 0.6748,
+   "y": 0.4603,
+   "shape": "target"
+  },
+  {
+   "kind": "switch",
+   "n": 29,
+   "x": 0.335,
+   "y": 0.1737,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 30,
+   "x": 0.4235,
+   "y": 0.2003,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 31,
+   "x": 0.5704,
+   "y": 0.1604,
+   "shape": "saucer"
+  },
+  {
+   "kind": "switch",
+   "n": 33,
+   "x": 0.8507,
+   "y": 0.7742,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 34,
+   "x": 0.0425,
+   "y": 0.7713,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 35,
+   "x": 0.6335,
+   "y": 0.7307,
+   "shape": "sling"
+  },
+  {
+   "kind": "switch",
+   "n": 36,
+   "x": 0.2755,
+   "y": 0.7307,
+   "shape": "sling"
+  },
+  {
+   "kind": "switch",
+   "n": 37,
+   "x": 0.5303,
+   "y": 0.3474,
+   "shape": "bumper"
+  },
+  {
+   "kind": "switch",
+   "n": 38,
+   "x": 0.642,
+   "y": 0.2525,
+   "shape": "bumper"
+  },
+  {
+   "kind": "switch",
+   "n": 39,
+   "x": 0.3908,
+   "y": 0.2525,
+   "shape": "bumper"
+  },
+  {
+   "kind": "coil",
+   "n": 6,
+   "x": 0.4296,
+   "y": 0.938,
+   "label": "Outhole kicker"
+  },
+  {
+   "kind": "coil",
+   "n": 7,
+   "x": 0.5971,
+   "y": 0.1998,
+   "label": "Saucer"
+  },
+  {
+   "kind": "coil",
+   "n": 8,
+   "x": 0.3883,
+   "y": 0.2525,
+   "label": "Left bumper"
+  },
+  {
+   "kind": "coil",
+   "n": 9,
+   "x": 0.642,
+   "y": 0.2525,
+   "label": "Right bumper"
+  },
+  {
+   "kind": "coil",
+   "n": 10,
+   "x": 0.5303,
+   "y": 0.3474,
+   "label": "Bottom bumper"
+  },
+  {
+   "kind": "coil",
+   "n": 13,
+   "x": 0.2403,
+   "y": 0.355,
+   "label": "Drop target reset"
+  },
+  {
+   "kind": "coil",
+   "n": 11,
+   "x": 0.216,
+   "y": 0.7539,
+   "label": "Left sling"
+  },
+  {
+   "kind": "coil",
+   "n": 12,
+   "x": 0.6893,
+   "y": 0.7556,
+   "label": "Right sling"
+  }
+ ]
+}

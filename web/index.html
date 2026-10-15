@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>rpu-sim play</title>
+<style>
+  :root {
+    --bg: #101216; --panel: #191c22; --line: #2b2f38; --text: #d8dbe2; --dim: #7c8392;
+    --lamp-off: #2a2420; --lamp-on: #ffcf4a; --lamp-dim: #8a6a22;
+    --sw-open: #3a6ea5; --sw-closed: #6fe36f; --coil: #ff5a4a; --seg: #ff7a2a; --seg-off: #3a1c0e;
+    --playfield: #14261c; --rail: #4a5a50;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 -apple-system, system-ui, sans-serif; }
+  header { display: flex; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0 12px 0 0; }
+  header .state { color: var(--dim); }
+  button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--dim); }
+  button kbd { color: var(--dim); font-size: 11px; margin-left: 4px; }
+  main { display: grid; grid-template-columns: minmax(280px, 520px) 1fr; gap: 16px; padding: 16px; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .panel h2 { font-size: 13px; font-weight: 600; color: var(--dim); margin: 0 0 8px; text-transform: uppercase; letter-spacing: .05em; }
+  #backglass { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .disp { font: 600 26px/1 "SF Mono", Menlo, monospace; color: var(--seg); background: #0b0806; border-radius: 6px; padding: 8px 10px; text-align: right; letter-spacing: .12em; text-shadow: 0 0 8px rgba(255,122,42,.6); white-space: pre; }
+  .disp small { display: block; font: 11px system-ui; color: var(--dim); text-align: left; letter-spacing: 0; text-shadow: none; margin-bottom: 4px; }
+  .disp.up { outline: 1px solid var(--seg); }
+  #info { display: flex; gap: 16px; color: var(--dim); font-size: 13px; margin-bottom: 8px; }
+  #info b { color: var(--text); }
+  svg { width: 100%; height: auto; display: block; }
+  .pf-outline { fill: var(--playfield); stroke: var(--rail); stroke-width: 6; }
+  .body { fill: #24443a; stroke: #3e6a5a; stroke-width: 3; }
+  .body.hit { fill: var(--coil); }
+  .sw { fill: var(--sw-open); stroke: #0008; stroke-width: 2; cursor: pointer; }
+  .sw.closed { fill: var(--sw-closed); }
+  .sw:hover { stroke: #fff; }
+  .coil { fill: #0000; stroke: #ff5a4a55; stroke-width: 3; }
+  .coil.hit { fill: var(--coil); }
+  .lampdot { fill: var(--lamp-off); stroke: #0006; stroke-width: 2; }
+  .lampdot.on { fill: var(--lamp-on); filter: drop-shadow(0 0 6px var(--lamp-on)); }
+  .lampdot.dim { fill: var(--lamp-dim); }
+  #lamps { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; }
+  .lamp { display: flex; gap: 6px; align-items: center; padding: 3px 6px; border-radius: 4px; font-size: 12px; color: var(--dim); }
+  .lamp i { width: 12px; height: 12px; border-radius: 50%; background: var(--lamp-off); flex: none; }
+  .lamp.on { color: var(--text); }
+  .lamp.on i { background: var(--lamp-on); box-shadow: 0 0 6px var(--lamp-on); }
+  .lamp.dim i { background: var(--lamp-dim); }
+  #switches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; }
+  .swbtn { text-align: left; font-size: 12px; padding: 4px 6px; }
+  .swbtn.closed { border-color: var(--sw-closed); color: var(--sw-closed); }
+  #log { height: 220px; overflow: auto; font: 12px/1.35 "SF Mono", Menlo, monospace; color: var(--dim); white-space: pre; }
+  #log .sol { color: var(--coil); } #log .sw { color: var(--sw-closed); } #log .pn { color: #8fb8ff; }
+  .side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  #tip { position: fixed; pointer-events: none; background: #000c; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; display: none; }
+  .err { color: var(--coil); }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="game">rpu-sim</h1>
+  <span id="cabinet"></span>
+  <button id="drain" title="Close the outhole switch">Drain <kbd>Space</kbd></button>
+  <span class="state" id="state"></span>
+</header>
+<main>
+  <div>
+    <div id="backglass"></div>
+    <div id="info"></div>
+    <div class="panel"><svg id="pf"></svg></div>
+  </div>
+  <div class="side">
+    <div class="panel"><h2>Lamps</h2><div id="lamps"></div></div>
+    <div class="panel"><h2>Switches <span style="font-weight:400;text-transform:none">(click: press · shift-click: hold or release)</span></h2><div id="switches"></div></div>
+    <div class="panel"><h2>Log</h2><div id="log"></div></div>
+  </div>
+</main>
+<div id="tip"></div>
+<script>
+const $ = s => document.querySelector(s);
+const send = line => fetch("/cmd", { method: "POST", body: line });
+let setup, byKind = { SW_: {}, SOL_: {}, LAMP_: {} }, labels = { switches: {}, solenoids: {}, lamps: {} };
+let swEls = {}, lampEls = {}, coilEls = {}, lastState = {};
+const STATES = { "0": "Attract" };
+
+function nameFor(prefix, n) { return byKind[prefix][n] || prefix + n; }
+function label(kind, n, prefix) { return labels[kind][n] || nameFor(prefix, n); }
+function tip(el, text) {
+  el.addEventListener("mousemove", e => { const t = $("#tip"); t.textContent = text; t.style.display = "block"; t.style.left = e.clientX + 12 + "px"; t.style.top = e.clientY + 12 + "px"; });
+  el.addEventListener("mouseleave", () => $("#tip").style.display = "none");
+}
+function swClick(n, e) {
+  const held = ["hole", "saucer", "drop"].includes(e.currentTarget?.dataset?.shape);
+  if (e.shiftKey || held) send("toggle " + n); else send("press " + n);
+}
+
+async function start() {
+  setup = await (await fetch("/setup")).json();
+  for (const [k, v] of Object.entries(setup.names.names)) for (const p of Object.keys(byKind)) if (k.startsWith(p) && !(v in byKind[p])) byKind[p][v] = k;
+  for (const kind of ["switches", "solenoids", "lamps"]) for (const e of (setup.labels[kind] || [])) labels[kind][e.n] = e.name;
+  $("#game").textContent = setup.game + (setup.layout.machine ? " · " + setup.layout.machine : "");
+  document.title = setup.game + " · rpu-sim";
+  // backglass
+  for (let d = 0; d < 4; d++) $("#backglass").insertAdjacentHTML("beforeend", `<div class="disp" id="d${d}"><small>Player ${d + 1}</small><span></span></div>`);
+  // cabinet buttons
+  for (const c of (setup.layout.cabinet || [{ label: "Start", sw: setup.names.names.SW_CREDIT_RESET, key: "1" }])) {
+    const b = document.createElement("button"); b.innerHTML = c.label + (c.key ? `<kbd>${c.key}</kbd>` : "");
+    b.onclick = () => send("press " + c.sw); $("#cabinet").append(b, " ");
+    if (c.key) document.addEventListener("keydown", e => { if (e.key === c.key && !e.repeat && e.target === document.body) send("press " + c.sw); });
+  }
+  const outhole = setup.names.names.SW_OUTHOLE;
+  $("#drain").onclick = () => send("close " + outhole);
+  document.addEventListener("keydown", e => { if ((e.key === " " || e.key === "Enter") && e.target === document.body) { e.preventDefault(); send("close " + outhole); } });
+  drawPlayfield();
+  // lamp bank: every lamp the game has a name or a label for
+  const lampNums = new Set([...Object.keys(byKind.LAMP_), ...Object.keys(labels.lamps)].map(Number));
+  for (const n of [...lampNums].sort((a, b) => a - b)) {
+    const el = document.createElement("div"); el.className = "lamp"; el.innerHTML = `<i></i><span>${n} · ${label("lamps", n, "LAMP_")}</span>`;
+    tip(el, nameFor("LAMP_", n)); $("#lamps").append(el); (lampEls[n] ||= []).push(el);
+  }
+  // switch list
+  const swNums = new Set([...Object.keys(byKind.SW_), ...Object.keys(labels.switches)].map(Number));
+  for (const n of [...swNums].sort((a, b) => a - b)) {
+    const b = document.createElement("button"); b.className = "swbtn"; b.textContent = `${n} · ${label("switches", n, "SW_")}`;
+    b.onclick = e => swClick(n, e); tip(b, nameFor("SW_", n)); $("#switches").append(b); (swEls[n] ||= []).push(b);
+  }
+  const ev = new EventSource("/events");
+  ev.onmessage = m => frame(JSON.parse(m.data));
+  ev.onerror = () => { $("#state").textContent = "disconnected"; };
+}
+
+function drawPlayfield() {
+  const L = setup.layout, W = 1000, H = Math.round(1000 * (L.aspect || 2.1)), svg = $("#pf");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const ns = "http://www.w3.org/2000/svg", mk = (t, a, parent = svg) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); parent.append(e); return e; };
+  mk("path", { d: `M10 ${H - 10} L10 500 A490 490 0 0 1 990 500 L990 ${H - 10} Z`, class: "pf-outline" });
+  if (!L.items) { mk("text", { x: 500, y: 500, "text-anchor": "middle", fill: "#7c8392", "font-size": 36 }).textContent = "No layout: use --machine"; return; }
+  for (const it of L.items) {
+    const x = it.x * W, y = it.y * H;
+    if (["bumper", "saucer"].includes(it.kind)) mk("circle", { cx: x, cy: y, r: it.r * W, class: "body" });
+    else if (["sling", "flipper"].includes(it.kind)) mk("rect", { x: x - it.w * W / 2, y: y - it.h * W / 2, width: it.w * W, height: it.h * W, rx: 14, class: "body", transform: `rotate(${it.angle || 0} ${x} ${y})` });
+  }
+  for (const it of L.items) {
+    const x = it.x * W, y = it.y * H;
+    if (it.kind === "coil") {
+      const e = mk("rect", { x: x - 16, y: y - 16, width: 32, height: 32, rx: 4, class: "coil" });
+      tip(e, `Coil ${it.n} · ${label("solenoids", it.n, "SOL_")}`); (coilEls[it.n] ||= []).push(e);
+    } else if (it.kind === "lamp") {
+      const e = mk("circle", { cx: x, cy: y, r: (it.r || 0.018) * W, class: "lampdot" });
+      tip(e, `Lamp ${it.n} · ${label("lamps", it.n, "LAMP_")}`); (lampEls[it.n] ||= []).push(e);
+    } else if (it.kind === "switch") {
+      const s = it.shape, e = s === "drop" || s === "target" ? mk("rect", { x: x - 22, y: y - 9, width: 44, height: 18, rx: 3, class: "sw" })
+        : s === "lane" ? mk("rect", { x: x - 8, y: y - 26, width: 16, height: 52, rx: 8, class: "sw" })
+        : mk("circle", { cx: x, cy: y, r: s === "hole" || s === "saucer" ? 22 : s === "rubber" ? 11 : 15, class: "sw" });
+      e.dataset.shape = s; e.addEventListener("click", ev => swClick(it.n, ev));
+      tip(e, `Switch ${it.n} · ${label("switches", it.n, "SW_")}`); (swEls[it.n] ||= []).push(e);
+    }
+  }
+}
+
+function frame(f) {
+  if (f.error) { addLog(`ERROR ${f.error}`, "err"); return; }
+  if (f.lamps === undefined) return;
+  for (let d = 0; d < 4; d++) { const el = $("#d" + d); el.querySelector("span").textContent = f.disp[d]; el.classList.toggle("up", f.state > 0 && f.player === d + 1); }
+  $("#info").innerHTML = `<span>Credits <b>${f.credits >= 0 ? f.credits : "–"}</b></span><span>Ball <b>${f.bip >= 0 ? f.bip : "–"}</b></span><span>Time <b>${(f.t / 1000).toFixed(1)} s</b></span>`;
+  $("#state").textContent = f.state === 0 ? "Attract" : f.state > 0 ? `Game · player ${f.player} · ball ${f.ball}` : `Machine state ${f.state}`;
+  for (const [n, els] of Object.entries(lampEls)) { const c = f.lamps[n]; for (const el of els) { el.classList.toggle("on", c === "1"); el.classList.toggle("dim", c === "d"); } }
+  const closed = new Set(f.sw);
+  for (const [n, els] of Object.entries(swEls)) for (const el of els) el.classList.toggle("closed", closed.has(+n));
+  for (const n of f.fired) for (const el of (coilEls[n] || [])) { el.classList.add("hit"); setTimeout(() => el.classList.remove("hit"), 150); }
+  for (const l of f.log) addLog(l, / SOL /.test(l) ? "sol" : / SW /.test(l) ? "sw" : / PN /.test(l) ? "pn" : "");
+}
+function addLog(text, cls) {
+  const log = $("#log"), atEnd = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
+  const d = document.createElement("div"); d.textContent = text; if (cls) d.className = cls; log.append(d);
+  while (log.childElementCount > 500) log.firstChild.remove();
+  if (atEnd) log.scrollTop = log.scrollHeight;
+}
+start();
+</script>
+</body>
+</html>

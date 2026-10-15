@@ -90,6 +90,22 @@ Run it with `./run.sh path/to/MyGame MyGame/sim/01-start.sim`. When a check fail
 - `expect`, `never` and `count` match the rest of the line, so put their comments on the line above.
 - Building for one machine of several: `SIM_DEFINES="-DMACHINE_BALLY_STAR_TREK" ./run.sh …`.
 
+## Play it in your browser
+
+```bash
+./play.py ~/src/StarTrek2022 --machine machines/bally-star-trek-1979
+```
+
+Builds the game, runs it in real time, and opens a page with the backglass displays, the playfield
+(drawn from the machine's `layout.json`), every lamp lighting live, and every switch. Click a
+switch to press it; shift-click holds or releases it (a ball resting in a hole). Keys: **1** Start,
+**5** Coin, **Space** drain. The log shows coils, switches and sounds as they happen.
+
+`machines/<machine>/` holds `machine.sim` (what the playfield does on its own) and `layout.json`
+(where each switch, coil and lamp sits, as fractions of the playfield). The positions are our own
+data, read from the manufacturer's playfield drawing; no artwork is copied. Lamp and switch names
+come from RPUMachines.
+
 ## The log
 
 Every run produces a time-stamped log, in milliseconds since power-on:
