@@ -93,8 +93,12 @@ Run it with `./run.sh path/to/MyGame MyGame/sim/01-start.sim`. When a check fail
 ## Play it in your browser
 
 ```bash
-./play.py ~/src/StarTrek2022 --machine machines/bally-star-trek-1979
+./play.py ~/src/StarTrek2022 --machine machines/bally-star-trek-1979 --manual ~/Manuals/Bally_1979_Star_Trek_Manual.pdf
 ```
+
+With `--manual` (your own copy of the machine's manual), the manufacturer's playfield drawing is
+the playfield: its page is rendered on your Mac, and the switches and coils sit over the drawn
+parts. Without it you get a plain drawing of the same positions.
 
 Builds the game, runs it in real time, and opens a page with the backglass displays, the playfield
 (drawn from the machine's `layout.json`), every lamp lighting live, and every switch. Click a

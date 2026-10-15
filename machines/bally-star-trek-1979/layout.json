@@ -347,5 +347,15 @@
    "y": 0.7556,
    "label": "Right sling"
   }
- ]
+ ],
+ "manual": {
+  "page": 20,
+  "frame": [
+   0.0969,
+   0.019,
+   0.6361,
+   0.8825
+  ],
+  "note": "Bally #1148-E manual, page 20 (Figure V). Pass your copy with --manual; it is rendered on your machine and never stored here."
+ }
 }

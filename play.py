@@ -15,6 +15,7 @@ HERE = Path(__file__).resolve().parent
 ap = argparse.ArgumentParser()
 ap.add_argument("sketch")
 ap.add_argument("--machine", help="folder with layout.json and machine.sim (see machines/)")
+ap.add_argument("--manual", help="your copy of the machine's manual (PDF): its playfield drawing becomes the background")
 ap.add_argument("--port", type=int, default=8765)
 ap.add_argument("--no-browser", action="store_true")
 a = ap.parse_args()
@@ -31,6 +32,14 @@ names = json.loads(sim.stdout.readline())        # the first line: SW_/SOL_/LAMP
 layout = {}
 if mdir and (mdir / "layout.json").exists():
     layout = json.loads((mdir / "layout.json").read_text())
+background = None                                 # the manual's playfield page, rendered here, never stored in the repo
+if a.manual and layout.get("manual"):
+    png = HERE / "build" / sketch.name / "manual-page.png"
+    if subprocess.call(["swift", str(HERE / "tools" / "render_page.swift"), str(Path(a.manual).resolve()),
+                        str(layout["manual"]["page"]), str(png), "3"]) == 0:
+        background = png.read_bytes()
+    else:
+        print("couldn't render the manual page; using the plain drawing")
 labels = {}                                       # the manufacturer's names, from RPUMachines
 lib = os.environ.get("MACHINES_LIB") or str(Path.home() / "Documents/Arduino/libraries/RPUMachines")
 if layout.get("names") and (Path(lib) / "names" / layout["names"]).exists():
@@ -54,7 +63,10 @@ class H(BaseHTTPRequestHandler):
         if self.path in ("/", "/index.html"):
             self.send(200, (HERE / "web" / "index.html").read_bytes(), "text/html; charset=utf-8")
         elif self.path == "/setup":
-            self.send(200, json.dumps({"names": names, "layout": layout, "labels": labels, "game": sketch.name}).encode(), "application/json")
+            self.send(200, json.dumps({"names": names, "layout": layout, "labels": labels, "game": sketch.name,
+                                       "background": background is not None}).encode(), "application/json")
+        elif self.path == "/background.png" and background:
+            self.send(200, background, "image/png")
         elif self.path == "/events":
             self.send_response(200); self.send_header("Content-Type", "text/event-stream"); self.send_header("Cache-Control", "no-store"); self.end_headers()
             q = queue.Queue(maxsize=200)

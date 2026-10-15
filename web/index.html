@@ -36,6 +36,11 @@
   .sw { fill: var(--sw-open); stroke: #0008; stroke-width: 2; cursor: pointer; }
   .sw.closed { fill: var(--sw-closed); }
   .sw:hover { stroke: #fff; }
+  svg.drawn .sw { fill: #3a6ea555; stroke: #3a6ea5; }
+  svg.drawn .sw.closed { fill: #6fe36fcc; }
+  svg.drawn .coil { stroke: #ff5a4a88; }
+  svg.drawn .lampdot { fill: #0000; stroke: #0000; }
+  svg.drawn .lampdot.on { fill: #ffcf4acc; }
   .coil { fill: #0000; stroke: #ff5a4a55; stroke-width: 3; }
   .coil.hit { fill: var(--coil); }
   .lampdot { fill: var(--lamp-off); stroke: #0006; stroke-width: 2; }
@@ -134,9 +139,16 @@ function drawPlayfield() {
   const L = setup.layout, W = 1000, H = Math.round(1000 * (L.aspect || 2.1)), svg = $("#pf");
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   const ns = "http://www.w3.org/2000/svg", mk = (t, a, parent = svg) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); parent.append(e); return e; };
-  mk("path", { d: `M10 ${H - 10} L10 500 A490 490 0 0 1 990 500 L990 ${H - 10} Z`, class: "pf-outline" });
+  const bg = setup.background && L.manual;
+  if (bg) {                                     // the manual's drawing, scaled so its playfield fills the view
+    const [l, t, r, b] = L.manual.frame, iw = W / (r - l), ih = H / (b - t);
+    mk("image", { href: "/background.png", x: -l * iw, y: -t * ih, width: iw, height: ih, preserveAspectRatio: "none" });
+    svg.classList.add("drawn");
+  } else {
+    mk("path", { d: `M10 ${H - 10} L10 500 A490 490 0 0 1 990 500 L990 ${H - 10} Z`, class: "pf-outline" });
+  }
   if (!L.items) { mk("text", { x: 500, y: 500, "text-anchor": "middle", fill: "#7c8392", "font-size": 36 }).textContent = "No layout: use --machine"; return; }
-  for (const it of L.items) {
+  for (const it of bg ? [] : L.items) {
     const x = it.x * W, y = it.y * H;
     if (["bumper", "saucer"].includes(it.kind)) mk("circle", { cx: x, cy: y, r: it.r * W, class: "body" });
     else if (["sling", "flipper"].includes(it.kind)) mk("rect", { x: x - it.w * W / 2, y: y - it.h * W / 2, width: it.w * W, height: it.h * W, rx: 14, class: "body", transform: `rotate(${it.angle || 0} ${x} ${y})` });
