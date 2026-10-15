@@ -22,9 +22,73 @@ SIM_DEFINES="-DMACHINE_BALLY_STAR_TREK" ./run.sh ~/src/MyGame examples/pin-node-
 the PinNode library (Library Manager: PinNode; or set `PINNODE_LIB`). Games that include a
 machine header need RPUMachines (Library Manager; or set `MACHINES_LIB`).
 
-**What it can't tell you:** real timing (a `loop()` pass is always 1 ms here), RAM and flash
-limits, 16-bit `int` overflow (`int` is 32 bits on the host), or anything about the real
-MPU bus.
+## Getting started (Mac)
+
+1. Install the Xcode command-line tools (for `clang++`): `xcode-select --install`.
+2. Install the [Arduino IDE](https://www.arduino.cc/en/software). Python 3 comes with macOS.
+3. Get rpu-sim and an RPU game, then run a scenario:
+
+```bash
+git clone https://github.com/wifijt/rpu-sim
+git clone https://github.com/RetroPinUpgrade/ExampleMachine ExampleMachineMEGA   # folder = sketch name
+cd rpu-sim
+./run.sh ../ExampleMachineMEGA examples/ExampleMachine/01-start-a-game.sim
+```
+
+It prints `PASS` (or `FAIL` and the line that failed). Add `-v` to see the whole log:
+`./build/ExampleMachineMEGA/sim -v examples/ExampleMachine/01-start-a-game.sim`.
+
+The first build takes a minute; later ones are quicker. The build goes to `build/<sketch name>/`.
+
+## Your own game
+
+Make a folder for your scenarios, say `MyGame/sim/`, with two files.
+
+**`machine.sim`: what the playfield does on its own.** A real ball moves when a coil fires; here
+you say which switches that opens. Where the ball starts goes here too.
+
+```
+# The outhole kicker serves the ball: the outhole switch opens
+physics SOL_OUTHOLE opens SW_OUTHOLE
+# The saucer kicks out its ball
+physics SOL_SAUCER opens SW_SAUCER
+# The drop target bank reset stands all three targets up
+physics SOL_DROP_RESET opens SW_DROP_1 SW_DROP_2 SW_DROP_3
+# Power on with the ball in the outhole
+close SW_OUTHOLE
+```
+
+Use your game's own names (the `SW_`, `SOL_` and `LAMP_` defines in its headers).
+
+**A scenario: something to check.** For example, that a game starts, scores and ends a ball:
+
+```
+include machine.sim
+run 3000                    # power on and settle into attract
+check state == 0            # attract mode
+
+press SW_CREDIT_RESET       # Start
+run 3000
+# the ball was served
+expect SOL fire SOL_OUTHOLE
+check ball == 1
+
+press SW_POP_BUMPER         # hit something (a ball that drains untouched is served again)
+check score 1 >= 1
+run 60000                   # past any ball save
+close SW_OUTHOLE            # drain
+run 8000
+check ball == 2
+```
+
+Run it with `./run.sh path/to/MyGame MyGame/sim/01-start.sim`. When a check fails, run again with
+`-v` and read the log around that time.
+
+**Tips**
+- Times are in milliseconds of game time. A long `run` takes a moment, not a minute.
+- `press` closes a switch for 40 ms. Use `close` and `open` for a ball resting on a switch.
+- `expect`, `never` and `count` match the rest of the line, so put their comments on the line above.
+- Building for one machine of several: `SIM_DEFINES="-DMACHINE_BALLY_STAR_TREK" ./run.sh …`.
 
 ## The log
 
@@ -56,13 +120,13 @@ One command per line; `#` starts a comment. Names (`SW_…`, `SOL_…`, `LAMP_�
 | `press SW [MS]` | close a switch, wait (40 ms), open it |
 | `press SW_SELF_TEST_SWITCH` | the coin-door self-test button (an event only: it has no held state) |
 | `close SW` / `open SW` | hold a switch (a ball in the outhole or a saucer) |
-| `link down` / `link up` | the node disappearing and coming back |
-| `node start REQID SLOT` | Start pressed in the app |
-| `node set REQID SET_X VALUE` | a setting changed from the app |
-| `node claim SLOT CODE SECS` | a claim code to show |
-| `node audit` | the node asking for the audits |
-| `node action REQID ACT_X start\|stop\|keepalive [ARG]` | an operator action from the phone |
-| `node lock on\|off` | a tournament holding (or releasing) the difficulty settings |
+| `link down` / `link up` | the node disappearing and coming back (PinNode games only) |
+| `node start REQID SLOT` | Start pressed in the app (PinNode games only) |
+| `node set REQID SET_X VALUE` | a setting changed from the app (PinNode games only) |
+| `node claim SLOT CODE SECS` | a claim code to show (PinNode games only) |
+| `node audit` | the node asking for the audits (PinNode games only) |
+| `node action REQID ACT_X start\|stop\|keepalive [ARG]` | an operator action from the phone (PinNode games only) |
+| `node lock on\|off` | a tournament holding (or releasing) the difficulty settings (PinNode games only) |
 | `wavlen TRACK MS` | how long a track plays (default 1200 ms) |
 | `expect TEXT` | the log has this text, after the previous `expect` |
 | `never TEXT` | the log does not have this text |
