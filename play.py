@@ -30,6 +30,8 @@ sim = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=
 
 names = json.loads(sim.stdout.readline())        # the first line: SW_/SOL_/LAMP_/... names
 layout = {}
+if mdir and not (mdir / "layout.json").exists():
+    mdir.mkdir(parents=True, exist_ok=True)
 if mdir and (mdir / "layout.json").exists():
     layout = json.loads((mdir / "layout.json").read_text())
 background = None                                 # the manual's playfield page, rendered here, never stored in the repo
@@ -83,6 +85,18 @@ class H(BaseHTTPRequestHandler):
         else:
             self.send(404, b"not found", "text/plain")
     def do_POST(self):
+        if self.path == "/layout":
+            if not mdir:
+                return self.send(400, b"start play.py with --machine to save a layout", "text/plain")
+            body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            try:
+                new = json.loads(body)
+                assert isinstance(new.get("items"), list)
+            except Exception:
+                return self.send(400, b"not a layout", "text/plain")
+            (mdir / "layout.json").write_text(json.dumps(new, indent=1) + "\n")
+            layout.clear(); layout.update(new)
+            return self.send(204, b"", "text/plain")
         if self.path == "/cmd":
             line = self.rfile.read(int(self.headers.get("Content-Length", 0))).decode().strip().splitlines()[0][:200]
             sim.stdin.write(line + "\n"); sim.stdin.flush()

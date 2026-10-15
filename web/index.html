@@ -40,8 +40,12 @@
   svg.drawn .sw.closed { fill: #6fe36fcc; }
   svg.drawn .coil { stroke: #ff5a4a88; }
   svg.drawn .lampdot { fill: #0000; stroke: #0000; }
+  svg.editing .coil { pointer-events: all; cursor: move; stroke: #ff5a4a; }
+  svg.editing .sw, svg.editing .lampdot { cursor: move; }
+  svg.editing .lampdot { stroke: #ffcf4a; fill: #ffcf4a33; }
+  svg.editing { cursor: crosshair; }
   svg.drawn .lampdot.on { fill: #ffcf4acc; }
-  .coil { fill: #0000; stroke: #ff5a4a55; stroke-width: 3; }
+  .coil { fill: #0000; stroke: #ff5a4a55; stroke-width: 3; pointer-events: none; }
   .coil.hit { fill: var(--coil); }
   .lampdot { fill: var(--lamp-off); stroke: #0006; stroke-width: 2; }
   .lampdot.on { fill: var(--lamp-on); filter: drop-shadow(0 0 6px var(--lamp-on)); }
@@ -67,6 +71,7 @@
   <h1 id="game">rpu-sim</h1>
   <span id="cabinet"></span>
   <button id="drain" title="Close the outhole switch">Drain <kbd>Space</kbd></button>
+  <button id="editbtn" title="Move switches, coils and lamps; place lamps">Edit layout</button>
   <span class="state" id="state"></span>
 </header>
 <main>
@@ -76,6 +81,17 @@
     <div class="panel"><svg id="pf"></svg></div>
   </div>
   <div class="side">
+    <div class="panel" id="editor" hidden>
+      <h2>Edit layout</h2>
+      <p style="margin:0 0 8px;color:var(--dim)">Drag anything on the playfield to move it. To place a new one, pick it here, then click
+        where it sits. <b>Option-click</b> removes one. <b>+</b> / <b>−</b> resize the last one you touched.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="placeKind"><option value="lamp">Lamp</option><option value="switch">Switch</option><option value="coil">Coil</option></select>
+        <select id="placeWhat" style="max-width:260px"></select>
+        <select id="placeShape" title="Switch shape"><option>dot</option><option>target</option><option>drop</option><option>lane</option><option>button</option><option>rubber</option><option>hole</option><option>saucer</option></select>
+        <button id="save">Save layout</button> <span id="editmsg" style="color:var(--dim)"></span>
+      </div>
+    </div>
     <div class="panel"><h2>Lamps</h2><div id="lamps"></div></div>
     <div class="panel"><h2>Switches <span style="font-weight:400;text-transform:none">(click: press · shift-click: hold or release)</span></h2><div id="switches"></div></div>
     <div class="panel"><h2>Log</h2><div id="log"></div></div>
@@ -135,8 +151,14 @@ async function start() {
   ev.onerror = () => { $("#state").textContent = "disconnected"; };
 }
 
+let editMode = false, dragging = null, lastTouched = null, dirty = false;
 function drawPlayfield() {
   const L = setup.layout, W = 1000, H = Math.round(1000 * (L.aspect || 2.1)), svg = $("#pf");
+  svg.innerHTML = ""; svg.classList.toggle("editing", editMode);
+  for (const k of Object.keys(lampEls)) lampEls[k] = lampEls[k].filter(e => !(e instanceof SVGElement));
+  for (const k of Object.keys(swEls)) swEls[k] = swEls[k].filter(e => !(e instanceof SVGElement));
+  coilEls = {};
+  L.items ||= [];
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   const ns = "http://www.w3.org/2000/svg", mk = (t, a, parent = svg) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); parent.append(e); return e; };
   const bg = setup.background && L.manual;
@@ -153,23 +175,83 @@ function drawPlayfield() {
     if (["bumper", "saucer"].includes(it.kind)) mk("circle", { cx: x, cy: y, r: it.r * W, class: "body" });
     else if (["sling", "flipper"].includes(it.kind)) mk("rect", { x: x - it.w * W / 2, y: y - it.h * W / 2, width: it.w * W, height: it.h * W, rx: 14, class: "body", transform: `rotate(${it.angle || 0} ${x} ${y})` });
   }
-  for (const it of L.items) {
+  const order = { coil: 0, lamp: 1, switch: 2 };       // switches on top, so a click on a bumper presses its switch
+  for (const it of [...L.items].sort((p, q) => (order[p.kind] ?? 0) - (order[q.kind] ?? 0))) {
     const x = it.x * W, y = it.y * H;
     if (it.kind === "coil") {
       const e = mk("rect", { x: x - 16, y: y - 16, width: 32, height: 32, rx: 4, class: "coil" });
-      tip(e, `Coil ${it.n} · ${label("solenoids", it.n, "SOL_")}`); (coilEls[it.n] ||= []).push(e);
+      tip(e, `Coil ${it.n} · ${label("solenoids", it.n, "SOL_")}`); (coilEls[it.n] ||= []).push(e); editable(e, it);
     } else if (it.kind === "lamp") {
       const e = mk("circle", { cx: x, cy: y, r: (it.r || 0.018) * W, class: "lampdot" });
-      tip(e, `Lamp ${it.n} · ${label("lamps", it.n, "LAMP_")}`); (lampEls[it.n] ||= []).push(e);
+      tip(e, `Lamp ${it.n} · ${label("lamps", it.n, "LAMP_")}`); (lampEls[it.n] ||= []).push(e); editable(e, it);
     } else if (it.kind === "switch") {
       const s = it.shape, e = s === "drop" || s === "target" ? mk("rect", { x: x - 22, y: y - 9, width: 44, height: 18, rx: 3, class: "sw" })
         : s === "lane" ? mk("rect", { x: x - 8, y: y - 26, width: 16, height: 52, rx: 8, class: "sw" })
         : mk("circle", { cx: x, cy: y, r: s === "hole" || s === "saucer" ? 22 : s === "rubber" ? 11 : 15, class: "sw" });
-      e.dataset.shape = s; e.addEventListener("click", ev => swClick(it.n, ev));
-      tip(e, `Switch ${it.n} · ${label("switches", it.n, "SW_")}`); (swEls[it.n] ||= []).push(e);
+      e.dataset.shape = s; e.addEventListener("click", ev => { if (!editMode) swClick(it.n, ev); });
+      tip(e, `Switch ${it.n} · ${label("switches", it.n, "SW_")}`); (swEls[it.n] ||= []).push(e); editable(e, it);
     }
   }
 }
+
+
+// ---- layout editor
+function svgPoint(e) {
+  const svg = $("#pf"), p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+function dims() { const L = setup.layout; return [1000, Math.round(1000 * (L.aspect || 2.1))]; }
+function editable(el, it) {
+  el.addEventListener("mousedown", e => {
+    if (!editMode) return;
+    e.preventDefault(); e.stopPropagation();
+    if (e.altKey) { setup.layout.items.splice(setup.layout.items.indexOf(it), 1); touched(null); drawPlayfield(); return; }
+    dragging = { it }; touched(it);
+  });
+}
+function touched(it) { lastTouched = it; dirty = true; $("#editmsg").textContent = "not saved"; }
+document.addEventListener("mousemove", e => {
+  if (!dragging) return;
+  const [W, H] = dims(), p = svgPoint(e);
+  dragging.it.x = +(Math.min(Math.max(p.x / W, 0), 1)).toFixed(4);
+  dragging.it.y = +(Math.min(Math.max(p.y / H, 0), 1)).toFixed(4);
+  drawPlayfield();
+});
+document.addEventListener("mouseup", () => { dragging = null; });
+document.addEventListener("keydown", e => {
+  if (!editMode || !lastTouched || e.target !== document.body) return;
+  if (e.key === "+" || e.key === "=" || e.key === "-") {
+    const it = lastTouched, step = e.key === "-" ? 0.85 : 1.18;
+    it.r = +(((it.r || (it.kind === "lamp" ? 0.018 : 0.016)) * step)).toFixed(4); touched(it); drawPlayfield();
+  }
+});
+function fillPlaceList() {
+  const kind = $("#placeKind").value, prefix = { lamp: "LAMP_", switch: "SW_", coil: "SOL_" }[kind];
+  const lab = { lamp: "lamps", switch: "switches", coil: "solenoids" }[kind];
+  const nums = new Set([...Object.keys(byKind[prefix]), ...Object.keys(labels[lab])].map(Number));
+  const placed = new Set(setup.layout.items.filter(i => i.kind === kind).map(i => i.n));
+  $("#placeWhat").innerHTML = [...nums].sort((a, b) => a - b).map(n =>
+    `<option value="${n}">${placed.has(n) ? "✓ " : ""}${n} · ${label(lab, n, prefix)}</option>`).join("");
+  $("#placeShape").hidden = kind !== "switch";
+}
+$("#placeKind").onchange = fillPlaceList;
+$("#pf").addEventListener("mousedown", e => {
+  if (!editMode || e.target.closest(".sw,.coil,.lampdot")) return;
+  const [W, H] = dims(), p = svgPoint(e), kind = $("#placeKind").value, n = +$("#placeWhat").value;
+  const it = { kind, n, x: +(p.x / W).toFixed(4), y: +(p.y / H).toFixed(4) };
+  if (kind === "switch") it.shape = $("#placeShape").value;
+  setup.layout.items.push(it); touched(it); drawPlayfield();
+  const sel = $("#placeWhat"); fillPlaceList(); sel.selectedIndex = Math.min([...sel.options].findIndex(o => +o.value === n) + 1, sel.options.length - 1);
+});
+$("#editbtn").onclick = () => {
+  editMode = !editMode; $("#editor").hidden = !editMode; $("#editbtn").textContent = editMode ? "Done editing" : "Edit layout";
+  if (editMode) fillPlaceList(); drawPlayfield();
+};
+$("#save").onclick = async () => {
+  const r = await fetch("/layout", { method: "POST", body: JSON.stringify(setup.layout, null, 1) });
+  $("#editmsg").textContent = r.ok ? "saved" : "couldn't save: " + await r.text(); if (r.ok) dirty = false;
+};
+window.addEventListener("beforeunload", e => { if (dirty) e.preventDefault(); });
 
 function frame(f) {
   if (f.error) { addLog(`ERROR ${f.error}`, "err"); return; }

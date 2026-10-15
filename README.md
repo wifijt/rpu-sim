@@ -96,6 +96,11 @@ Run it with `./run.sh path/to/MyGame MyGame/sim/01-start.sim`. When a check fail
 ./play.py ~/src/StarTrek2022 --machine machines/bally-star-trek-1979 --manual ~/Manuals/Bally_1979_Star_Trek_Manual.pdf
 ```
 
+**Edit layout** (top of the page) moves things: drag any switch, coil or lamp on the playfield;
+pick a lamp, switch or coil from the list and click where it sits to place it; Option-click removes
+one; **+** / **−** resize the last one you touched. **Save layout** writes `layout.json` in the
+`--machine` folder.
+
 With `--manual` (your own copy of the machine's manual), the manufacturer's playfield drawing is
 the playfield: its page is rendered on your Mac, and the switches and coils sit over the drawn
 parts. Without it you get a plain drawing of the same positions.
