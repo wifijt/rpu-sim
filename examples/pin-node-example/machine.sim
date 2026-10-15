@@ -1,0 +1,7 @@
+# What the playfield does when a coil fires, for this machine (ExampleMachineMEGA.h).
+physics SOL_SERVE_BALL opens SW_OUTHOLE
+physics SOL_SAUCER opens SW_SAUCER
+physics SOL_DROP_BANK_L_RESET opens SW_DROP_L_1 SW_DROP_L_2 SW_DROP_L_3
+physics SOL_DROP_BANK_R_RESET opens SW_DROP_R_1 SW_DROP_R_2 SW_DROP_R_3
+# The ball starts in the outhole
+close SW_OUTHOLE

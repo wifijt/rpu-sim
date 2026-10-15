@@ -1,0 +1,58 @@
+# One player, three balls, start to match: the records the node needs, in order.
+include machine.sim
+run 3000
+expect PN HELLO proto=2
+expect PN HELLO_EXT ruleset=pin-node-example
+expect PN SETTINGS_REPORT
+expect PN MODE mode=0
+check state == 0
+
+press SW_CREDIT_RESET
+run 3000
+expect PN MODE mode=1 ball=1 slot=1
+expect PN GAME_START
+expect PN BALL_START g=1 slot=1 ball=1
+expect SOL fire SOL_SERVE_BALL
+check ball == 1
+check switch SW_OUTHOLE open
+
+# play a little, long enough for the ball save to run out
+press SW_POP_BUMPER
+press SW_POP_BUMPER
+press SW_LEFT_SLING
+run 30000
+check score 1 == 210
+
+# drain: bonus count, then ball 2
+close SW_OUTHOLE
+run 6000
+expect PN STAT g=1 slot=1 stat=0 (STAT_POP_BUMPER_HITS) op=add v=2
+expect PN BALL_END g=1 slot=1 ball=1
+expect PN BALL_START g=1 slot=1 ball=2
+check ball == 2
+
+press SW_POP_BUMPER
+run 30000
+close SW_OUTHOLE
+run 6000
+expect PN BALL_END g=1 slot=1 ball=2
+expect PN BALL_START g=1 slot=1 ball=3
+check ball == 3
+
+press SW_POP_BUMPER
+run 30000
+close SW_OUTHOLE
+run 6000
+expect PN BALL_END g=1 slot=1 ball=3
+expect PN GAME_END g=1 endedBy=0
+expect PN ACH g=1 slot=1 ach=0 (ACH_FIRST_GAME)
+
+# match, then back to attract
+run 30000
+expect PN MODE mode=0
+check state == 0
+count PN GAME_START == 1
+count PN GAME_END == 1
+count PN BALL_START == 3
+count PN BALL_END == 3
+check nodelay 0

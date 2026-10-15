@@ -1,0 +1,26 @@
+# "Add credit" from the app (the owner): in attract the game adds the credits its own way
+# (saved, shown) and answers with the new count; past the maximum (40) or during a game it refuses.
+include machine.sim
+run 2000
+expect PN CREDITS credits=4 freePlay=0
+node credit 1 2
+run 50
+check credits == 6
+node credit 2 35
+run 50
+check credits == 6
+node credit 3 34
+run 50
+check credits == 40
+# during a game: not now
+press SW_CREDIT_RESET
+run 3000
+check state == 4
+node credit 4 1
+run 50
+expect PN CREDIT_RESULT reqId=1 result=0 credits=6
+expect PN CREDITS credits=6 freePlay=0
+expect PN CREDIT_RESULT reqId=2 result=3 credits=6
+expect PN CREDIT_RESULT reqId=3 result=0 credits=40
+expect PN CREDIT_RESULT reqId=4 result=1 credits=39
+check nodelay 0

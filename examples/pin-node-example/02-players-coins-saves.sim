@@ -1,0 +1,114 @@
+# Coins, a second player from the app, ball save, tilt, and claim codes after the game.
+include machine.sim
+run 2000
+
+# three coins: chute 1, 2 and 3 (1 coin / 1 credit by default; a new EEPROM starts with 4 credits)
+press SW_COIN_1
+expect PN COIN chute=1 credits=5
+press SW_COIN_2
+expect PN COIN chute=2 credits=6
+press SW_COIN_3
+expect PN COIN chute=3 credits=7
+check credits == 7
+
+# player 1 from the start button, player 2 from the app
+press SW_CREDIT_RESET
+run 1500
+expect PN GAME_START g=1 credits=6
+node start 41 0
+run 50
+expect PN PLAYER_ADDED g=1 slot=2
+expect PN START_RESULT reqId=41 result=0 slot=2
+check players == 2
+
+# ball save: drain 3 s after the first switch; the ball comes back and the ball isn't over
+run 2000
+press SW_POP_BUMPER
+run 3000
+close SW_OUTHOLE
+run 2500
+check switch SW_OUTHOLE open
+check ball == 1
+check player == 1
+never PN BALL_END
+
+# a tilt warning, then a tilt: the ball ends with no bonus
+run 20000
+press SW_PLUMB_TILT
+expect PN TILT g=1 slot=1 kind=0
+run 1500
+press SW_PLUMB_TILT
+expect PN TILT g=1 slot=1 kind=0
+run 1500
+press SW_PLUMB_TILT
+expect PN TILT g=1 slot=1 kind=1
+check lamp LAMP_HEAD_TILT on
+close SW_OUTHOLE
+run 6000
+expect PN BALL_END g=1 slot=1 ball=1 score=100
+expect FLIPPERS on
+expect PN BALL_START g=1 slot=2 ball=1
+check player == 2
+
+# the app can't add a player after ball 1
+close SW_OUTHOLE
+run 4000
+note player 2 ball 1 drained with nothing hit: the ball is served again
+check player == 2
+press SW_LEFT_SLING
+press SW_LEFT_INLANE
+run 30000
+close SW_OUTHOLE
+run 6000
+expect PN BALL_START g=1 slot=1 ball=2
+node start 42 0
+run 50
+expect PN START_RESULT reqId=42 result=3
+
+# finish the game quickly
+press SW_LEFT_INLANE
+run 30000
+close SW_OUTHOLE
+run 6000
+press SW_LEFT_INLANE
+run 30000
+close SW_OUTHOLE
+run 6000
+press SW_LEFT_INLANE
+run 30000
+close SW_OUTHOLE
+run 6000
+press SW_LEFT_INLANE
+run 30000
+close SW_OUTHOLE
+run 6000
+expect PN GAME_END g=1 endedBy=0 scores=
+expect PN ACH g=1 slot=1 ach=0
+expect PN ACH g=1 slot=2 ach=0
+run 30000
+check state == 0
+
+# claim codes: the library shows the code in that player's display, blinking, for 5 s,
+# then the score for 2 s, with the player-up lamp flashing while the code is up
+node claim 2 123456 300
+forget steady 2
+until 7100 check display 2 123456
+until 700 check lamp LAMP_HEAD_PLAYER_2_UP flash
+check lamp LAMP_HEAD_PLAYER_1_UP off
+until 700 check display 2 blank
+note the code blinks: off for a moment, then back
+until 700 check display 2 123456
+run 25000
+note in all that time nothing else drew display 2
+check steady 2
+until 7100 check display 2 123456
+
+# a new game: the codes are gone and nothing of the claim display carries into play
+press SW_CREDIT_RESET
+run 3000
+check lamp LAMP_HEAD_PLAYER_2_UP off
+run 8000
+never ERROR
+check display 2 blank
+count PN BALL_END == 6
+check nodelay 0

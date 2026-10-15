@@ -1,0 +1,5 @@
+# The Bally Star Trek playfield (RPUMachines' BallyStarTrek1979.h).
+physics SOL_OUTHOLE opens SW_OUTHOLE
+physics SOL_SAUCER opens SW_SAUCER
+physics SOL_DROP_TARGET_RESET opens SW_DROP_1 SW_DROP_2 SW_DROP_3 SW_DROP_4
+close SW_OUTHOLE

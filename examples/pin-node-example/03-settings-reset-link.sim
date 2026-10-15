@@ -1,0 +1,57 @@
+# Settings from the app, a game abandoned for a new one, and the link dropping and returning.
+include machine.sim
+run 2000
+
+# a live-safe setting and a not-live-safe one, in attract: both apply
+node set 7 SET_MUSIC_VOLUME 4
+run 20
+expect PN SETTING_CHANGED index=3 (SET_MUSIC_VOLUME) value=4 source=1 reqId=7 result=0
+check eeprom 109 == 4
+node set 8 SET_BALLS_PER_GAME 5
+run 20
+expect PN SETTING_CHANGED index=6 (SET_BALLS_PER_GAME) value=5 source=1 reqId=8 result=0
+node set 9 SET_TILT_WARNINGS 9
+run 20
+expect PN SETTING_CHANGED index=2 (SET_TILT_WARNINGS) value=2 source=1 reqId=9 result=1
+node set 10 SET_FREE_PLAY 1
+run 20
+expect result=0
+
+# free play: a start from the app with no credits used
+node start 5 0
+run 1500
+expect PN START_RESULT reqId=5 result=0 slot=1
+expect PN GAME_START g=1 credits=4 freePlay=1
+
+# mid-game: volume may change, balls per game may not
+node set 11 SET_SFX_VOLUME 2
+run 20
+expect PN SETTING_CHANGED index=4 (SET_SFX_VOLUME) value=2 source=1 reqId=11 result=0
+node set 12 SET_BALLS_PER_GAME 3
+run 20
+expect PN SETTING_CHANGED index=6 (SET_BALLS_PER_GAME) value=5 source=1 reqId=12 result=2
+
+# play to ball 2, then hold the start button: the game is abandoned and a new one starts
+run 2000
+press SW_LEFT_SLING
+press SW_LEFT_INLANE
+run 30000
+close SW_OUTHOLE
+run 6000
+check ball == 2
+press SW_CREDIT_RESET 2500
+run 3000
+expect PN GAME_END g=1 endedBy=2
+expect PN GAME_START g=2
+check ball == 1
+
+# the link drops (node restart) and comes back: HELLO again, and the game carries on
+link down
+run 500
+link up
+run 100
+expect settings=24 flags=0
+expect PN HELLO_EXT
+expect PN MODE mode=1 ball=1 slot=1
+check ball == 1
+check nodelay 0
