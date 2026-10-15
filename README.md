@@ -93,27 +93,34 @@ Run it with `./run.sh path/to/MyGame MyGame/sim/01-start.sim`. When a check fail
 ## Play it in your browser
 
 ```bash
-./play.py ~/src/StarTrek2022 --machine machines/bally-star-trek-1979 --manual ~/Manuals/Bally_1979_Star_Trek_Manual.pdf
+./play.py ~/src/StarTrek2022 --manual ~/Manuals/Bally_1979_Star_Trek_Manual.pdf
 ```
 
-**Edit layout** (top of the page) moves things: drag any switch, coil or lamp on the playfield;
-pick a lamp, switch or coil from the list and click where it sits to place it; Option-click removes
-one; **+** / **−** resize the last one you touched. **Save layout** writes `layout.json` in the
-`--machine` folder.
+Builds the game, runs it in real time, and opens a page with the backglass displays, the
+playfield, every lamp lighting live, and every switch. Click a switch to press it; shift-click
+holds or releases it (a ball resting in a hole). Keys: **1** Start, **5** Coin, **Space** drain.
+The log shows coils, switches and sounds as they happen.
 
-With `--manual` (your own copy of the machine's manual), the manufacturer's playfield drawing is
-the playfield: its page is rendered on your Mac, and the switches and coils sit over the drawn
-parts. Without it you get a plain drawing of the same positions.
+**The machine** comes from [RPUMachines](https://github.com/wifijt/RPUMachines): its names, and its
+layout (`layouts/<machine>.json`: where each lamp, switch and coil sits). `play.py` finds it from
+the machine header the game includes, or name it with `--machine bally-star-trek-1979`. It reads
+RPUMachines from `MACHINES_LIB`, or from the library the Arduino IDE installed. What the playfield
+does on its own (which coil opens which switch) is in `machines/<machine>/machine.sim` here.
 
-Builds the game, runs it in real time, and opens a page with the backglass displays, the playfield
-(drawn from the machine's `layout.json`), every lamp lighting live, and every switch. Click a
-switch to press it; shift-click holds or releases it (a ball resting in a hole). Keys: **1** Start,
-**5** Coin, **Space** drain. The log shows coils, switches and sounds as they happen.
+**With `--manual`** (your own copy of the machine's manual), the manufacturer's playfield drawing
+is the playfield: the page is rendered on your Mac, and the switches and coils sit over the drawn
+parts. Without it you get a plain drawing of the same positions. The drawing is never stored
+anywhere: RPUMachines keeps only the page number and the positions.
 
-`machines/<machine>/` holds `machine.sim` (what the playfield does on its own) and `layout.json`
-(where each switch, coil and lamp sits, as fractions of the playfield). The positions are our own
-data, read from the manufacturer's playfield drawing; no artwork is copied. Lamp and switch names
-come from RPUMachines.
+**Edit layout** (top of the page): drag any switch, coil or lamp; pick one from the list and click
+where it sits to place it; Option-click removes one; **+** / **−** resize the last one you touched.
+**Save layout** writes it back into RPUMachines when `MACHINES_LIB` is a git clone of it (send it
+as a pull request), or into `machines/<machine>/layout.json` here.
+
+**Dick Hamill's [Lamp Animator](https://pinballrefresh.com/animation-generator)** maps lamps the same
+way, to generate lamp animations. In the editor, **Export** saves the playfield image and the lamp
+positions as its `{x,y}` list: load both there and skip the mapping. **Import** takes a list you
+saved there. The animations it generates then play here, in the game.
 
 ## The log
 
