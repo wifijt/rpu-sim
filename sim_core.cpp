@@ -3,11 +3,11 @@
  *
  * Copyright (C) 2026 John Turner (wifijt). GPL-3.0: see LICENSE.
  *
- * The real sketch, DisplayHandler, OperatorMenus, AudioHandler and PinNodeCtrl
+ * The real sketch, DisplayHandler, OperatorMenus, AudioHandler (and PinNodeCtrl, for PinNode games)
  * are compiled for the host and linked against this file, which stands in for:
  *   - the Arduino core (millis, Serial, EEPROM),
  *   - RPU.cpp (switches, lamps, displays, solenoids: the RPU.h API),
- *   - RPULink.cpp (the link to the node: records are decoded and logged),
+ *   - RPULink.cpp, for PinNode games (the link to the node: records are decoded and logged),
  *   - the WAV Trigger on Serial1 (commands are decoded, track reports sent back).
  *
  * A scenario file drives it: switch closures, time, records from the node, and
@@ -30,7 +30,9 @@
 #include "Wire.h"
 #include "RPU_Config.h"
 #include "RPU.h"
+#ifdef RPU_SIM_PINNODE                      // build.sh sets it when the sketch includes PinNode.h
 #include "RPULink.h"
+#endif
 
 // ---- the sketch
 void setup();
@@ -464,10 +466,12 @@ unsigned long RPU_ReadULFromEEProm(unsigned short startByte, unsigned long defau
   return value;
 }
 
+static unsigned long RecordCount[256];         // PinNode records sent (0 without PinNode)
+
+#ifdef RPU_SIM_PINNODE
 // ------------------------------------------------------------------ RPULink
 static bool LinkUp = true;
 static RPULinkRecordHandler LinkHandler = NULL;
-static unsigned long RecordCount[256];
 
 static uint32_t rd32(const byte *p) { return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24); }
 static uint16_t rd16(const byte *p) { return (uint16_t)(p[0] | (p[1] << 8)); }
@@ -578,6 +582,7 @@ uint16_t RPULink_CRC16(const byte *, unsigned int) { return 0; }
 void PinNodeCtrl_OnPinNodeRecord(byte, const byte *, byte) {}
 
 char __data_load_end;   // PinNodeCtrl's build CRC walks flash up to this symbol on the Mega
+#endif  // RPU_SIM_PINNODE
 
 // ------------------------------------------------------------------ scenario runner
 static int Checks = 0;
@@ -703,6 +708,7 @@ static void RunCommand(const std::string &line, const std::string &dir) {
     RunFor(ms);
     SimOpenSwitch(n, true);
     RunFor(10);
+#ifdef RPU_SIM_PINNODE
   } else if (cmd == "link") {
     std::string s; in >> s;
     LinkUp = (s == "up");
@@ -751,6 +757,10 @@ static void RunCommand(const std::string &line, const std::string &dir) {
     } else {
       Fail("unknown node command '%s'", what.c_str());
     }
+#else
+  } else if (cmd == "link" || cmd == "node") {
+    Fail("%s: this game doesn't use PinNode (no #include <PinNode.h>)", cmd.c_str());
+#endif
   } else if (cmd == "expect") {             // expect TEXT: in the log, after the last expect
     std::string text;
     std::getline(in, text);

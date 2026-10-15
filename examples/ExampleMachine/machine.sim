@@ -1,0 +1,4 @@
+# Dick Hamill's ExampleMachine (github.com/RetroPinUpgrade/ExampleMachine): no PinNode.
+physics SOL_SERVE_BALL opens SW_OUTHOLE
+# The ball starts in the outhole
+close SW_OUTHOLE

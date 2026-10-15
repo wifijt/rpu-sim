@@ -1,0 +1,17 @@
+# A plain RPU game, no PinNode: start a game, serve the ball, drain it.
+include machine.sim
+run 3000
+check state == 0
+
+press SW_CREDIT_RESET
+run 3000
+expect SOL fire SOL_SERVE_BALL
+check ball == 1
+check switch SW_OUTHOLE open
+
+# hit something (a ball that drains untouched is served again), then wait out the ball save
+press SW_POP_BUMPER
+run 60000
+close SW_OUTHOLE
+run 8000
+check ball == 2

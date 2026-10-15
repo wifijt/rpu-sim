@@ -10,15 +10,20 @@ NAME="$(basename "$SKETCH")"
 OUT="$SIM/build/$NAME"
 CLI="${ARDUINO_CLI:-/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli}"
 FQBN="arduino:avr:mega:cpu=atmega2560"
-# The PinNode library: installed in the Arduino libraries folder, or a checkout named here
+# PinNode: only for sketches that include PinNode.h. Then the PinNode library is needed (installed in
+# the Arduino libraries folder, or a checkout named in PINNODE_LIB) and its link is simulated.
 PINNODE_LIB="${PINNODE_LIB:-}"
-if [ -z "$PINNODE_LIB" ]; then
-  for d in "$HOME/Documents/Arduino/libraries/PinNode"; do
-    if [ -f "$d/src/PinNodeCtrl.cpp" ]; then PINNODE_LIB="$d"; break; fi
-  done
-fi
-if [ ! -f "$PINNODE_LIB/src/PinNodeCtrl.cpp" ]; then
-  echo "PinNode library not found: install it (Library Manager: PinNode) or set PINNODE_LIB" >&2; exit 1
+USES_PINNODE=""
+if grep -qsE '#include[[:space:]]*[<"]PinNode\.h[>"]' "$SKETCH"/*.ino "$SKETCH"/*.h; then
+  USES_PINNODE=1
+  if [ -z "$PINNODE_LIB" ]; then
+    for d in "$HOME/Documents/Arduino/libraries/PinNode"; do
+      if [ -f "$d/src/PinNodeCtrl.cpp" ]; then PINNODE_LIB="$d"; break; fi
+    done
+  fi
+  if [ ! -f "$PINNODE_LIB/src/PinNodeCtrl.cpp" ]; then
+    echo "This game uses PinNode: install the PinNode library (Library Manager) or set PINNODE_LIB" >&2; exit 1
+  fi
 fi
 # The RPUMachines library (machine definitions): optional, for sketches that include one
 MACHINES_LIB="${MACHINES_LIB:-}"
@@ -27,8 +32,10 @@ if [ -z "$MACHINES_LIB" ]; then
     if [ -d "$d/src" ]; then MACHINES_LIB="$d"; break; fi
   done
 fi
-LIBFLAGS=(--library "$PINNODE_LIB")
-INCFLAGS=(-I"$PINNODE_LIB/src")
+LIBFLAGS=(); INCFLAGS=(); SIMFLAGS=()
+if [ -n "$USES_PINNODE" ]; then
+  LIBFLAGS+=(--library "$PINNODE_LIB"); INCFLAGS+=(-I"$PINNODE_LIB/src"); SIMFLAGS+=(-DRPU_SIM_PINNODE -DPINNODE_HOST_BUILD)
+fi
 HEADERS=("$SKETCH"/*.h "$SKETCH"/*.ino)
 if [ -n "$MACHINES_LIB" ]; then
   LIBFLAGS+=(--library "$MACHINES_LIB"); INCFLAGS+=(-I"$MACHINES_LIB/src")
@@ -44,7 +51,7 @@ mkdir -p "$OUT"
 # 1. the sketch as one .cpp, with prototypes, exactly as the Arduino build sees it
 # SIM_DEFINES="-DMACHINE_BALLY_STAR_TREK" builds the sketch for that machine
 SIM_DEFINES="${SIM_DEFINES:-}"
-"$CLI" compile -b "$FQBN" "${LIBFLAGS[@]}" ${SIM_DEFINES:+--build-property "build.extra_flags=$SIM_DEFINES"} --preprocess "$SKETCH" > "$OUT/sketch.cpp"
+"$CLI" compile -b "$FQBN" ${LIBFLAGS[@]+"${LIBFLAGS[@]}"} ${SIM_DEFINES:+--build-property "build.extra_flags=$SIM_DEFINES"} --preprocess "$SKETCH" > "$OUT/sketch.cpp"
 
 # 2. names for the log and the scenarios: every numeric SW_/SOL_/LAMP_/ACH_/STAT_/SET_/AUD_/ACT_ constant
 python3 - "${HEADERS[@]}" > "$OUT/sim_names.inc" <<'PY'
@@ -64,7 +71,8 @@ PY
 
 # 3. compile: the mock Arduino headers first, then the sketch folder
 # (the library's PinNodeCtrl.cpp is the real one; its RPULink is replaced by sim_core.cpp)
-SRCS=("$OUT/sketch.cpp" "$SIM/sim_core.cpp" "$PINNODE_LIB/src/PinNodeCtrl.cpp")
+SRCS=("$OUT/sketch.cpp" "$SIM/sim_core.cpp")
+[ -n "$USES_PINNODE" ] && SRCS+=("$PINNODE_LIB/src/PinNodeCtrl.cpp")
 for f in "$SKETCH"/*.cpp; do
   case "$(basename "$f")" in
     RPU.cpp|RPULink.cpp) ;;                 # replaced by sim_core.cpp
@@ -72,6 +80,6 @@ for f in "$SKETCH"/*.cpp; do
   esac
 done
 clang++ -std=gnu++17 -g -O1 -w -fsanitize=address,undefined -fno-sanitize-recover=undefined \
-  -DPINNODE_HOST_BUILD $SIM_DEFINES \
-  -I"$SIM/mock" -I"$OUT" -I"$SKETCH" "${INCFLAGS[@]}" "${SRCS[@]}" -o "$OUT/sim"
+  ${SIMFLAGS[@]+"${SIMFLAGS[@]}"} $SIM_DEFINES \
+  -I"$SIM/mock" -I"$OUT" -I"$SKETCH" ${INCFLAGS[@]+"${INCFLAGS[@]}"} "${SRCS[@]}" -o "$OUT/sim"
 echo "built $OUT/sim"

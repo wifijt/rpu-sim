@@ -1,22 +1,24 @@
 # rpu-sim
 
 Runs a RetroPinUpgrade (RPU) game on your computer, with no Mega and no machine. The game's
-own code (the sketch, `DisplayHandler`, `OperatorMenus`, `AudioHandler`, and the PinNode
-library's `PinNodeCtrl` if the game uses PinNode) is compiled for the host and linked against
-`sim_core.cpp`, which stands in for the Arduino core, `RPU.cpp` (switches, lamps, displays,
-coils), the PinNode link, and the WAV Trigger on Serial1. Scenario files drive it: switch
+own code (the sketch, `DisplayHandler`, `OperatorMenus`, `AudioHandler`) is compiled for the
+host and linked against `sim_core.cpp`, which stands in for the Arduino core, `RPU.cpp`
+(switches, lamps, displays, coils) and the WAV Trigger on Serial1. Games that include PinNode.h
+also get the PinNode library's `PinNodeCtrl` and a simulated link to its node. Scenario files drive it: switch
 closures, time passing, and checks on what the game did.
 
 ```bash
-./run.sh ~/src/MyGame examples/pin-node-example/01-full-game.sim   # build MyGame, run a scenario
+./run.sh ~/src/ExampleMachineMEGA examples/ExampleMachine/01-start-a-game.sim   # build, run a scenario
+./run.sh ~/src/MyGame examples/pin-node-example/01-full-game.sim   # a game with PinNode
 ./build/MyGame/sim -v examples/pin-node-example/01-full-game.sim   # again, with the full log
 SIM_DEFINES="-DMACHINE_BALLY_STAR_TREK" ./run.sh ~/src/MyGame examples/pin-node-example-star-trek/01-star-trek-coils.sim
 ```
 
-`examples/` has scenarios for [PinNode-Example](https://github.com/pin-node/PinNode-Example).
+`examples/` has scenarios for Dick Hamill's [ExampleMachine](https://github.com/RetroPinUpgrade/ExampleMachine)
+(plain RPU) and for [PinNode-Example](https://github.com/pin-node/PinNode-Example) (RPU with PinNode).
 
 **Needs:** the Arduino IDE (its `arduino-cli` adds the sketch's function prototypes; set
-`ARDUINO_CLI` if yours is somewhere else), `clang++`, and Python 3. Games that use PinNode need
+`ARDUINO_CLI` if yours is somewhere else), `clang++`, and Python 3. Only games that include PinNode.h need
 the PinNode library (Library Manager: PinNode; or set `PINNODE_LIB`). Games that include a
 machine header need RPUMachines (Library Manager; or set `MACHINES_LIB`).
 
