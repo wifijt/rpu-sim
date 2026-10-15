@@ -56,6 +56,8 @@
   .lamp.on { color: var(--text); }
   .lamp.on i { background: var(--lamp-on); box-shadow: 0 0 6px var(--lamp-on); }
   .lamp.dim i { background: var(--lamp-dim); }
+  body.editing .lamp, body.editing .swbtn { cursor: grab; outline: 1px dashed var(--line); }
+  body.editing .lamp.placed span::before, body.editing .swbtn.placed::before { content: "✓ "; color: var(--sw-closed); }
   #switches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; }
   .swbtn { text-align: left; font-size: 12px; padding: 4px 6px; }
   .swbtn.closed { border-color: var(--sw-closed); color: var(--sw-closed); }
@@ -83,8 +85,8 @@
   <div class="side">
     <div class="panel" id="editor" hidden>
       <h2>Edit layout</h2>
-      <p style="margin:0 0 8px;color:var(--dim)">Drag anything on the playfield to move it. To place a new one, pick it here, then click
-        where it sits. <b>Option-click</b> removes one. <b>+</b> / <b>−</b> resize the last one you touched.</p>
+      <p style="margin:0 0 8px;color:var(--dim)">Drag anything on the playfield to move it. To place one, <b>drag it from the Lamps or
+        Switches list</b> onto its spot (✓ marks the placed ones), or pick it here and click where it sits. <b>Option-click</b> removes one. <b>+</b> / <b>−</b> resize the last one you touched.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <select id="placeKind"><option value="lamp">Lamp</option><option value="switch">Switch</option><option value="coil">Coil</option></select>
         <select id="placeWhat" style="max-width:260px"></select>
@@ -137,7 +139,15 @@ async function start() {
   // backglass
   for (let d = 0; d < 4; d++) $("#backglass").insertAdjacentHTML("beforeend", `<div class="disp" id="d${d}"><small>Player ${d + 1}</small><span></span></div>`);
   // cabinet buttons
-  for (const c of (setup.layout.cabinet || [{ label: "Start", sw: setup.names.names.SW_CREDIT_RESET, key: "1" }])) {
+  // cabinet buttons: from the layout if it lists them, else from the game's own switch names
+  const N = setup.names.names, has = k => k in N;
+  const cab = setup.layout.cabinet || [
+    has("SW_CREDIT_RESET") && { label: "Start", sw: N.SW_CREDIT_RESET, key: "1" },
+    (has("SW_COIN_1") || has("SW_COIN_3")) && { label: "Coin", sw: has("SW_COIN_1") ? N.SW_COIN_1 : N.SW_COIN_3, key: "5" },
+    (has("SW_TILT") || has("SW_PLUMB_TILT")) && { label: "Tilt", sw: has("SW_TILT") ? N.SW_TILT : N.SW_PLUMB_TILT, key: "t" },
+    has("SW_SLAM") && { label: "Slam", sw: N.SW_SLAM },
+  ].filter(Boolean);
+  for (const c of cab) {
     const b = document.createElement("button"); b.innerHTML = c.label + (c.key ? `<kbd>${c.key}</kbd>` : "");
     b.onclick = () => send("press " + c.sw); $("#cabinet").append(b, " ");
     if (c.key) document.addEventListener("keydown", e => { if (e.key === c.key && !e.repeat && e.target === document.body) send("press " + c.sw); });
@@ -150,13 +160,15 @@ async function start() {
   const lampNums = new Set([...Object.keys(byKind.LAMP_), ...Object.keys(labels.lamps)].map(Number));
   for (const n of [...lampNums].sort((a, b) => a - b)) {
     const el = document.createElement("div"); el.className = "lamp"; el.innerHTML = `<i></i><span>${n} · ${label("lamps", n, "LAMP_")}</span>`;
+    listDraggable(el, "lamp", n);
     tip(el, nameFor("LAMP_", n)); $("#lamps").append(el); (lampEls[n] ||= []).push(el);
   }
   // switch list
   const swNums = new Set([...Object.keys(byKind.SW_), ...Object.keys(labels.switches)].map(Number));
   for (const n of [...swNums].sort((a, b) => a - b)) {
     const b = document.createElement("button"); b.className = "swbtn"; b.textContent = `${n} · ${label("switches", n, "SW_")}`;
-    b.onclick = e => swClick(n, e); tip(b, nameFor("SW_", n)); $("#switches").append(b); (swEls[n] ||= []).push(b);
+    b.onclick = e => { if (!editMode) swClick(n, e); }; tip(b, nameFor("SW_", n)); $("#switches").append(b); (swEls[n] ||= []).push(b);
+    listDraggable(b, "switch", n);
   }
   const ev = new EventSource("/events");
   ev.onmessage = m => frame(JSON.parse(m.data));
@@ -217,7 +229,7 @@ function editable(el, it) {
   el.addEventListener("mousedown", e => {
     if (!editMode) return;
     e.preventDefault(); e.stopPropagation();
-    if (e.altKey) { setup.layout.items.splice(setup.layout.items.indexOf(it), 1); touched(null); drawPlayfield(); return; }
+    if (e.altKey) { setup.layout.items.splice(setup.layout.items.indexOf(it), 1); touched(null); drawPlayfield(); markPlaced(); return; }
     dragging = { it }; touched(it);
   });
 }
@@ -252,11 +264,12 @@ $("#pf").addEventListener("mousedown", e => {
   const [W, H] = dims(), p = svgPoint(e), kind = $("#placeKind").value, n = +$("#placeWhat").value;
   const it = { kind, n, x: +(p.x / W).toFixed(4), y: +(p.y / H).toFixed(4) };
   if (kind === "switch") it.shape = $("#placeShape").value;
-  setup.layout.items.push(it); touched(it); drawPlayfield();
+  setup.layout.items.push(it); touched(it); drawPlayfield(); markPlaced();
   const sel = $("#placeWhat"); fillPlaceList(); sel.selectedIndex = Math.min([...sel.options].findIndex(o => +o.value === n) + 1, sel.options.length - 1);
 });
 $("#editbtn").onclick = () => {
   editMode = !editMode; $("#editor").hidden = !editMode; $("#editbtn").textContent = editMode ? "Done editing" : "Edit layout";
+  document.body.classList.toggle("editing", editMode); markPlaced();
   if (editMode) {
     fillPlaceList();
     $("#saveto").textContent = setup.saveTo ? "Saves to " + setup.saveTo : "Start play.py with --machine to save.";
@@ -298,6 +311,31 @@ $("#animImport").onclick = () => {
   touched(null); drawPlayfield(); fillPlaceList();
   $("#editmsg").textContent = `imported ${count} lamps: check them, then Save layout`;
 };
+
+// drag a lamp or switch from the lists onto the playfield (edit mode): places it, or moves it there
+function listDraggable(el, kind, n) {
+  el.dataset.kind = kind; el.dataset.n = n;
+  el.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", kind + ":" + n); e.dataTransfer.effectAllowed = "copy"; });
+}
+function markPlaced() {
+  const placed = new Set(setup.layout.items.map(i => i.kind + ":" + i.n));
+  document.querySelectorAll(".lamp[data-kind], .swbtn[data-kind]").forEach(el => {
+    el.draggable = editMode; el.classList.toggle("placed", placed.has(el.dataset.kind + ":" + el.dataset.n));
+  });
+}
+$("#pf").addEventListener("dragover", e => { if (editMode) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });
+$("#pf").addEventListener("drop", e => {
+  if (!editMode) return;
+  e.preventDefault();
+  const [kind, num] = (e.dataTransfer.getData("text/plain") || "").split(":");
+  if (!kind) return;
+  const n = +num, [W, H] = dims(), p = svgPoint(e);
+  const x = +(Math.min(Math.max(p.x / W, 0), 1)).toFixed(4), y = +(Math.min(Math.max(p.y / H, 0), 1)).toFixed(4);
+  let it = kind === "lamp" ? setup.layout.items.find(i => i.kind === "lamp" && i.n === n) : null;   // a lamp has one place
+  if (it) { it.x = x; it.y = y; }
+  else { it = { kind, n, x, y }; if (kind === "switch") it.shape = $("#placeShape").value; setup.layout.items.push(it); }
+  touched(it); drawPlayfield(); fillPlaceList(); markPlaced();
+});
 
 function frame(f) {
   if (f.error) { addLog(`ERROR ${f.error}`, "err"); return; }

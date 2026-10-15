@@ -112,8 +112,8 @@ is the playfield: the page is rendered on your Mac, and the switches and coils s
 parts. Without it you get a plain drawing of the same positions. The drawing is never stored
 anywhere: RPUMachines keeps only the page number and the positions.
 
-**Edit layout** (top of the page): drag any switch, coil or lamp; pick one from the list and click
-where it sits to place it; Option-click removes one; **+** / **−** resize the last one you touched.
+**Edit layout** (top of the page): drag any switch, coil or lamp on the playfield; drag a lamp or
+switch from the lists onto its spot to place it (or pick one and click where it sits); Option-click removes one; **+** / **−** resize the last one you touched.
 **Save layout** writes it back into RPUMachines when `MACHINES_LIB` is a git clone of it (send it
 as a pull request), or into `machines/<machine>/layout.json` here.
 
