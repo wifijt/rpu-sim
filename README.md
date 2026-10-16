@@ -104,7 +104,7 @@ on the playfield. For anything else, see Add a machine.
 | `--sounds <folder>` | The game's WAV Trigger folder (what goes on its SD card: `201.wav` or `0201_name.wav`). |
 | `--watch GameMode,BonusX` | Game variables to show live. |
 | `--machine <id>` | The RPUMachines machine, when it can't tell from the header the game includes. |
-| `--physics <file.sim>` | Which coil opens which switch, for a machine with no layout (or to try changes). The layout's physics otherwise. |
+| `--physics <file.sim>` | Which switches each coil opens or closes, for a machine with no layout (or to try changes). The layout's physics otherwise. |
 | `--port`, `--no-browser` | |
 
 **On the page**
@@ -137,16 +137,30 @@ playfield.
    onto its spot. Click a placed one to select it: **Remove** (or Delete) takes it off, **+** and
    **−** resize it. If the machine has a Visual Pinball table, `tools/vpx_import.py` places most of
    the lamps for you (see Tools).
-5. **Add its physics,** so the ball gets served: which coil opens which switches (outhole kicker,
-   saucers, drop target resets) and where the ball starts. Start with a `.sim` file like
-   [examples/ExampleMachine/machine.sim](examples/ExampleMachine/machine.sim) and try it with
-   `--physics`:
+5. **Add its physics.** Your game only fires coils; on a real machine the coil then does something
+   that moves switches. The trough kicks the ball into the shooter lane, so the outhole switch
+   opens (and a shooter-lane switch, if there is one, closes). A drop target reset stands the
+   targets up, so their switches open. A saucer kicks out its ball, so its switch opens. The sim
+   has no ball and no mechanics, so you tell it, for each coil, which switches it opens or closes.
+   Without this the ball is never served and the game waits forever.
+
+   Write it as a `.sim` file, like
+   [examples/ExampleMachine/machine.sim](examples/ExampleMachine/machine.sim):
 
    ```
+   # The trough serves the ball: the outhole switch opens
    physics SOL_SERVE_BALL opens SW_OUTHOLE
+   # The drop target reset stands all three up
    physics SOL_DROP_BANK_R_RESET opens SW_DROP_R_1 SW_DROP_R_2 SW_DROP_R_3
+   # A machine with a shooter-lane switch: the ball lands on it
+   physics SOL_SERVE_BALL opens SW_OUTHOLE closes SW_SHOOTER_LANE
+   # Power on with the ball in the outhole
    close SW_OUTHOLE
    ```
+
+   Try it with `./play.py <your game's folder> --physics machine.sim`. The Log shows each switch the
+   physics moved, as `SW open SW_OUTHOLE (by SOL_SERVE_BALL)`. Switches the ball hits while it's in
+   play (bumpers, slings, rollovers) aren't physics: you click those.
 
    When it works, put it in the layout as `physics` and `ballStarts`, the way the
    [Star Trek layout](https://github.com/wifijt/RPUMachines/blob/main/layouts/bally-star-trek-1979.json)

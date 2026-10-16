@@ -260,11 +260,12 @@ static PlayfieldAndCabinetSwitch *GameSwitchesSim = NULL;
 
 static void FireSolenoid(byte sol, const char *why);
 
-static void SimCloseSwitch(int sw) {
+static void SimCloseSwitch(int sw, const char *by = NULL) {
   if (sw < 0 || sw >= SIM_NUM_SWITCHES) return;
   if (SwitchState[sw]) return;
   SwitchState[sw] = true;
-  Log("SW close %s", NameOf("SW_", sw).c_str());
+  if (by) Log("SW close %s (by %s)", NameOf("SW_", sw).c_str(), by);
+  else Log("SW close %s", NameOf("SW_", sw).c_str());
   SwitchStack.push_back((byte)sw);
   // pop bumpers and slingshots are fired by the OS itself, from the switch
   for (int i = 0; i < NumGameSwitchesSim; i++) {
@@ -299,7 +300,7 @@ boolean RPU_GetUpDownSwitchState() { return true; }
 void RPU_ClearUpDownSwitchState() {}
 
 // ------------------------------------------------------------------ RPU: solenoids
-struct SimPhysics { int solenoid; std::vector<int> opens; };
+struct SimPhysics { int solenoid; std::vector<int> opens, closes; };
 static std::vector<SimPhysics> Physics;
 struct SimTimedSol { byte sol; unsigned long when; bool override; };
 static std::vector<SimTimedSol> TimedSols;
@@ -316,6 +317,7 @@ static void FireSolenoid(byte sol, const char *why) {
     for (int sw : p.opens) {
       if (SwitchState[sw]) { SwitchState[sw] = false; Log("SW open %s (by %s)", NameOf("SW_", sw).c_str(), NameOf("SOL_", sol).c_str()); }
     }
+    for (int sw : p.closes) SimCloseSwitch(sw, NameOf("SOL_", sol).c_str());
   }
 }
 
@@ -678,12 +680,18 @@ static void RunCommand(const std::string &line, const std::string &dir) {
     std::string savedFile = CurrentFile; int savedLine = CurrentLine;
     RunFile(dir + "/" + f);
     CurrentFile = savedFile; CurrentLine = savedLine;
-  } else if (cmd == "physics") {            // physics SOL_X opens SW_A SW_B ...
-    std::string sol, word, sw;
-    in >> sol >> word;
+  } else if (cmd == "physics") {            // physics SOL_X opens SW_A SW_B ... [closes SW_C ...]
+    std::string sol, word;
+    in >> sol;
     SimPhysics p;
     p.solenoid = NeedName(sol);
-    while (in >> sw) p.opens.push_back(NeedName(sw));
+    std::vector<int> *into = NULL;
+    while (in >> word) {
+      if (word == "opens") into = &p.opens;
+      else if (word == "closes") into = &p.closes;
+      else if (!into) Fail("physics %s: expected opens or closes, got %s", sol.c_str(), word.c_str());
+      else into->push_back(NeedName(word));
+    }
     Physics.push_back(p);
   } else if (cmd == "eeprom") {             // eeprom ADDR VALUE   (before boot: a preset)
     int addr, value; in >> addr >> value;

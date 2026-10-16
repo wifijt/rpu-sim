@@ -7,8 +7,9 @@ the line that failed; add `-v` to the built `sim` for the whole log.
 
 Make a folder for your scenarios, say `MyGame/sim/`, with two files.
 
-**`machine.sim`: what the playfield does on its own.** A real ball moves when a coil fires; here
-you say which switches that opens. Where the ball starts goes here too.
+**`machine.sim`: what the playfield does on its own.** Your game fires a coil and the machine
+acts: the ball is served, targets stand up. The sim has no ball, so you say which switches each
+coil opens or closes (see the README's Add a machine, step 5). Where the ball starts goes here too.
 
 ```
 # The outhole kicker serves the ball: the outhole switch opens
@@ -76,7 +77,7 @@ One command per line; `#` starts a comment. Names (`SW_…`, `SOL_…`, `LAMP_�
 | Command | Meaning |
 |---|---|
 | `include machine.sim` | read another file (the machine's physics) |
-| `physics SOL_X opens SW_A SW_B` | when this coil fires, these switches open |
+| `physics SOL_X opens SW_A SW_B closes SW_C` | when this coil fires, these switches open (and these close) |
 | `eeprom ADDR VALUE` | preset an EEPROM byte (before the first `run`) |
 | `bootoriginal MS` | power on with the original ROM game chosen, and let it run this long (in place of the first `run`) |
 | `run MS` | run `loop()` for this long (1 ms per pass) |

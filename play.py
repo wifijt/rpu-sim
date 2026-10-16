@@ -19,7 +19,7 @@ HERE = Path(__file__).resolve().parent
 ap = argparse.ArgumentParser()
 ap.add_argument("sketch")
 ap.add_argument("--machine", help="the machine's id in RPUMachines (e.g. bally-star-trek-1979)")
-ap.add_argument("--physics", help="a .sim file of physics lines (which coil opens which switch); used in place of the layout's")
+ap.add_argument("--physics", help="a .sim file of physics lines (which switches each coil opens or closes); used in place of the layout's")
 ap.add_argument("--image", help="a picture of the playfield (e.g. extracted from a VPX table) to use as the background; line it up once with Align image")
 ap.add_argument("--sounds", help="the game's WAV Trigger folder (files named by track number: 0201_x.wav, 201.wav); your browser plays them")
 ap.add_argument("--watch", help="game variables to show live, e.g. GameMode,BonusX (remembered for next time)")
@@ -77,7 +77,8 @@ def setup_file():
     if layout.get("physics") or layout.get("ballStarts"):
         out = HERE / "build" / sketch.name / "machine.sim"
         out.parent.mkdir(parents=True, exist_ok=True)
-        lines = [f"physics {p['coil']} opens {' '.join(str(w) for w in p['opens'])}" for p in layout.get("physics", [])]
+        lines = [f"physics {p['coil']}" + "".join(f" {k} " + " ".join(str(w) for w in p[k]) for k in ("opens", "closes") if p.get(k))
+                 for p in layout.get("physics", [])]
         lines += [f"close {w}" for w in layout.get("ballStarts", [])]
         out.write_text("\n".join(lines) + "\n")
         return out
