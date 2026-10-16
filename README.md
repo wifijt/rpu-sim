@@ -112,8 +112,10 @@ The log shows coils, switches and sounds as they happen.
 **The machine** comes from [RPUMachines](https://github.com/wifijt/RPUMachines): its names, and its
 layout (`layouts/<machine>.json`: where each lamp, switch and coil sits). `play.py` finds it from
 the machine header the game includes, or name it with `--machine bally-star-trek-1979`. It reads
-RPUMachines from `MACHINES_LIB`, or from the library the Arduino IDE installed. What the playfield
-does on its own (which coil opens which switch) is in `machines/<machine>/machine.sim` here.
+RPUMachines from `MACHINES_LIB`, or from the library the Arduino IDE installed; no repo is needed.
+The layout also says what the playfield does on its own (`physics`: the outhole kicker serves the
+ball, and so on). A machine RPUMachines doesn't have yet still runs: lamps and switches show by
+number, and you build its layout in the editor.
 
 **With `--manual`** (your own copy of the machine's manual), the manufacturer's playfield drawing
 is the playfield: the page is rendered on your Mac, and the switches and coils sit over the drawn
@@ -140,8 +142,10 @@ are hand-made and sometimes number a lamp differently, so check its disagreement
 **Edit layout** (top of the page): drag any switch, coil or lamp on the playfield; drag a lamp or
 switch from the lists onto its spot to place it (or pick one and click where it sits); click one to
 select it, then **Remove** (or Delete) takes it off and **+** / **−** resize it.
-**Save layout** writes it back into RPUMachines when `MACHINES_LIB` is a git clone of it (send it
-as a pull request), or into `machines/<machine>/layout.json` here.
+**Save layout** writes it straight into RPUMachines when `MACHINES_LIB` is a git clone of it (send it
+as a pull request); otherwise into `~/Documents/rpu-sim/layouts/<machine>.json` (or `RPU_SIM_LAYOUTS`),
+outside every repo. Layouts there load first, so a machine in progress just works; to contribute
+one, copy it into RPUMachines' `layouts/` and open a pull request.
 
 **Sound:** `--sounds "~/Documents/StarTrek2022 Sounds"` points at the game's WAV Trigger folder (what you
 copy to its SD card: files named by track number, `0201_hyperspace.wav` or `201.wav`). Your browser

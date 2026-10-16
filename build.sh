@@ -81,7 +81,11 @@ PY
 
 # 2b. watched variables (SIM_WATCH="GameMode,BonusX"): appended to the sketch itself, so they're in scope
 # with their own types; sim --live sends their values with every frame
-if [ -n "${SIM_WATCH:-}" ]; then
+{                                    # always defined (empty without SIM_WATCH): macOS won't link a missing weak function
+  if [ -z "${SIM_WATCH:-}" ]; then
+    echo '#include <string>'
+    echo 'void SimWatchValues(std::string &) {}'
+  else
   {
     echo '#include <string>'
     echo '#include <type_traits>'
@@ -99,8 +103,9 @@ if [ -n "${SIM_WATCH:-}" ]; then
       echo "  o += \"\\\"$w\\\":\\\"\" + SimFmt($w) + \"\\\",\";"
     done
     echo '}'
-  } >> "$OUT/sketch.cpp"
-fi
+  }
+  fi
+} >> "$OUT/sketch.cpp"
 
 # 3. compile: the mock Arduino headers first, then the sketch folder
 # (the library's PinNodeCtrl.cpp is the real one; its RPULink is replaced by sim_core.cpp)

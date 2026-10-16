@@ -45,7 +45,7 @@ def machine_id():
             pass
     return None
 
-mid = machine_id()
+mid = machine_id() or sketch.name.lower()
 legacy = mid and Path(mid).is_dir()                     # a folder with layout.json (and machine.sim)
 mdir = Path(mid).resolve() if legacy else (HERE / "machines" / mid if mid else None)
 mid = mdir.name if legacy else mid
@@ -60,10 +60,37 @@ if not build():
     sys.exit("build failed")
 watch_file.write_text(watch)
 binary = HERE / "build" / sketch.name / "sim"
-cmd = [str(binary), "--live"] + ([str(mdir / "machine.sim")] if mdir and (mdir / "machine.sim").exists() else [])
-if mdir and not (mdir / "machine.sim").exists():
-    print(f"no {mdir / 'machine.sim'}: the ball won't start in the outhole (see README: Your own game)")
+# Layouts you're working on live outside every repo; they load before RPUMachines' copy
+local_layouts = Path(os.environ.get("RPU_SIM_LAYOUTS") or Path.home() / "Documents/rpu-sim/layouts")
+layout, layout_path = {}, None
+for cand in ([mdir / "layout.json"] if legacy else []) + [local_layouts / f"{mid}.json"] + ([lib / "layouts" / f"{mid}.json"] if not legacy else []):
+    if cand.exists():
+        layout, layout_path = json.loads(cand.read_text()), cand
+        break
+# where a saved layout goes: back into RPUMachines if that's a git clone, else next to the sim
+# where a saved layout goes: straight into RPUMachines if that's a git clone (ready for a pull request),
+# else your local layouts folder (copy it into RPUMachines to contribute it)
+save_path = (mdir / "layout.json") if legacy else (lib / "layouts" / f"{mid}.json") if (lib / ".git").exists() else (local_layouts / f"{mid}.json")
+if layout_path:
+    print(f"layout: {layout_path}")
+
+def setup_file():
+    """What the playfield does on its own: the layout's physics, else a machines/<id>/machine.sim."""
+    if layout.get("physics") or layout.get("ballStarts"):
+        out = HERE / "build" / sketch.name / "machine.sim"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        lines = [f"physics {p['coil']} opens {' '.join(str(w) for w in p['opens'])}" for p in layout.get("physics", [])]
+        lines += [f"close {w}" for w in layout.get("ballStarts", [])]
+        out.write_text("\n".join(lines) + "\n")
+        return out
+    if mdir and (mdir / "machine.sim").exists():
+        return mdir / "machine.sim"
+    print("this layout has no physics: the ball won't start in the outhole (add physics in RPUMachines, see its README)")
+    return None
+
 def start_sim():
+    setup = setup_file()
+    cmd = [str(binary), "--live"] + ([str(setup)] if setup else [])
     return subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1,
                             cwd=str(mdir if mdir and mdir.is_dir() else HERE))
 sim = start_sim()
@@ -86,15 +113,6 @@ if a.sounds:
                 pass
     sim.stdin.flush()
     print(f"sounds: {len(sounds)} tracks from {a.sounds}")
-layout, layout_path = {}, None
-for cand in ([mdir / "layout.json"] if mdir else []) + ([lib / "layouts" / f"{mid}.json"] if mid and not legacy else []):
-    if cand.exists():
-        layout, layout_path = json.loads(cand.read_text()), cand
-        break
-# where a saved layout goes: back into RPUMachines if that's a git clone, else next to the sim
-save_path = (lib / "layouts" / f"{mid}.json") if (mid and not legacy and (lib / ".git").exists()) else (mdir / "layout.json" if mdir else None)
-if layout_path:
-    print(f"layout: {layout_path}")
 background = None                                 # the manual's playfield, rendered here, never stored in the repo
 crop = None                                       # the playfield alone, for the Lamp Animator export
 if a.manual and layout.get("manual"):

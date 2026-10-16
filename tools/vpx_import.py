@@ -10,7 +10,8 @@ switches both have, and then:
   - reports every lamp and switch, and how far the table's position is from the layout's;
   - with --write, adds the lamps the layout doesn't have yet (your placements are kept);
   - with --replace, also moves lamps you already placed to the table's positions.
-The layout is RPUMachines' layouts/<machine>.json (MACHINES_LIB, or the Arduino IDE's copy).
+The layout is your local one (~/Documents/rpu-sim/layouts/<machine>.json) if you have it, else
+RPUMachines' layouts/<machine>.json (MACHINES_LIB, or the Arduino IDE's copy).
 
 Tables are made by hand and sometimes number a lamp differently from the manufacturer; check the
 report before trusting a lamp the table disagrees about.
@@ -52,7 +53,9 @@ def main():
     t = Path(a.table)
     lib = Path(os.environ.get("MACHINES_LIB") or Path.home() / "Documents/Arduino/libraries/RPUMachines")
     mid = a.machine or (sorted(p.stem for p in (lib / "layouts").glob("*.json")) or [None])[0]
-    lay_path, names_path = lib / "layouts" / f"{mid}.json", lib / "names" / f"{mid}.json"
+    local = Path(os.environ.get("RPU_SIM_LAYOUTS") or Path.home() / "Documents/rpu-sim/layouts") / f"{mid}.json"
+    lay_path = local if local.exists() else lib / "layouts" / f"{mid}.json"      # your local layout first, as play.py does
+    names_path = lib / "names" / f"{mid}.json"
     layout, names = json.loads(lay_path.read_text()), json.loads(names_path.read_text())
     platform = "williams" if "williams" in names["machine"].lower() else "bally"
     label = {k: {e["n"]: e["name"] for e in names[k]} for k in ("lamps", "switches")}

@@ -1,6 +1,0 @@
-# Bally Star Trek (1979): what the playfield does on its own, for rpu-sim and play.py.
-physics SOL_OUTHOLE opens SW_OUTHOLE
-physics SOL_SAUCER opens SW_SAUCER
-physics SOL_DROP_TARGET_RESET opens SW_DROP_1 SW_DROP_2 SW_DROP_3 SW_DROP_4
-# Power on with the ball in the outhole
-close SW_OUTHOLE
