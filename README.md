@@ -84,7 +84,7 @@ cd rpu-sim
 
 It builds the game (about 30 s), runs it, and opens http://localhost:8765.
 
-ExampleMachine has no playfield layout, so give it its physics file and it plays with plain shapes:
+ExampleMachine has no layout, so give it its physics file; you play it from the Switches and Lamps lists:
 
 ```bash
 ./play.py ../ExampleMachineMEGA --physics examples/ExampleMachine/machine.sim
