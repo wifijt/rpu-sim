@@ -66,6 +66,8 @@ Every run produces a time-stamped log, in milliseconds since power-on:
 | `PN` | a record sent to the PinNode node, decoded |
 | `NODE` | a record from the node |
 | `SER` | a line the sketch wrote to `Serial` |
+| `TROUGH` | a ball served from or fed into a trough, or a trough that was empty or full |
+| `SND` | a sound number sent to a Williams sound board (nothing plays) |
 | `DELAY` | a `delay()` after boot: these stall the link and should not exist |
 | `ERROR` | something that fails the run (for example any use of `Serial2`) |
 
@@ -78,6 +80,8 @@ One command per line; `#` starts a comment. Names (`SW_…`, `SOL_…`, `LAMP_�
 |---|---|
 | `include machine.sim` | read another file (the machine's physics) |
 | `physics SOL_X opens SW_A SW_B closes SW_C` | when this coil fires, these switches open (and these close) |
+| `trough SW_EXIT SW_NEXT … serve SOL_X [to SW_Y] [feed SOL_Z from SW_W] [balls N]` | a ball trough the sim counts (see the README's Add a machine, step 5); one line per trough |
+| `fire SOL_X` | fire a coil yourself, as if the game had (to try the physics) |
 | `eeprom ADDR VALUE` | preset an EEPROM byte (before the first `run`) |
 | `bootoriginal MS` | power on with the original ROM game chosen, and let it run this long (in place of the first `run`) |
 | `run MS` | run `loop()` for this long (1 ms per pass) |
@@ -103,6 +107,8 @@ One command per line; `#` starts a comment. Names (`SW_…`, `SOL_…`, `LAMP_�
 | `check display N VALUE\|blank` | what score display N (1-4) shows |
 | `check steady N` | display N was never written with two different values in one pass of `loop()` (which flickers on the machine), since the last such check |
 | `check credits OP N` | the credit display |
+| `check trough SW_EXIT OP N` | balls in the trough with this exit switch |
+| `check waiting SW_W OP N` | balls waiting on a trough's `from` switch (the outhole) |
 | `check eeprom ADDR OP N` | an EEPROM byte |
 | `check fired SOL OP N` | how often a coil has fired |
 | `check nodelay MS` | no `delay()` longer than this ran after boot |

@@ -702,7 +702,8 @@ function frame(f) {
   $("#bipd").textContent = f.bip >= 0 ? String(f.bip).padStart(2, " ") : "  ";
   $("#credd").textContent = f.credits >= 0 ? String(f.credits).padStart(2, " ") : "  ";
   const stName = stateName(f.state);
-  $("#info").innerHTML = `<span>Mode <b>${stName}</b></span><span>Player <b>${f.player}</b></span><span>Time <b style="display:inline-block;min-width:7ch;text-align:right">${(f.t / 1000).toFixed(1)} s</b></span>`;
+  $("#info").innerHTML = `<span>Mode <b>${stName}</b></span><span>Player <b>${f.player}</b></span><span>Time <b style="display:inline-block;min-width:7ch;text-align:right">${(f.t / 1000).toFixed(1)} s</b></span>`
+    + (f.troughs || []).map(([name, balls, waiting]) => `<span title="balls in the trough whose exit switch is ${name}${waiting ? `, and ${waiting} waiting to go in` : ""}">Trough${f.troughs.length > 1 ? " " + name.replace(/^SW_/, "") : ""} <b>${balls}</b>${waiting ? ` +${waiting}` : ""}</span>`).join("");
   $("#state").textContent = stName;
   if (f.watch) showWatch(f.watch);
   const up = f.state > 0 ? f.player : 0, sc = up ? f.disp[up - 1].trim() || "0" : "";

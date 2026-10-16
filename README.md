@@ -164,8 +164,29 @@ playfield.
    physics moved, as `SW open SW_OUTHOLE (by SOL_SERVE_BALL)`. Switches the ball hits while it's in
    play (bumpers, slings, rollovers) aren't physics: you click those.
 
-   The same file works in scenarios (`include machine.sim`). Physics stays out of the layout: the
-   layout is positions only.
+   **Machines with a ball trough** (several balls, often multiball) need the sim to count balls,
+   because what a coil does depends on how many are where. Describe the trough instead:
+
+   ```
+   # Scorpion: two balls; the outhole kicker feeds the trough, the ball ramp thrower serves
+   trough SW_BALL_1 SW_BALL_2 serve SOL_BALL_RAMP_THROWER feed SOL_OUTHOLE from SW_OUTHOLE balls 2
+   ```
+
+   - List the trough's switches **from the exit end** (the ball served next sits on the first).
+     The sim fills them from that end and keeps them matching the number of balls.
+   - `serve` takes one ball out; the last switch in line opens. `to SW_X` (optional) says where
+     the ball lands, for a trough that serves onto a switch or into another trough.
+   - `feed ... from SW_OUTHOLE` (optional) moves a ball waiting on that switch into the trough.
+     Every **Drain** is one more ball on it, so with two balls in play you drain twice.
+   - `balls N` is how many it holds at power-on, in place of `close SW_OUTHOLE`.
+   - A machine can have more than one trough: one `trough` line each. A lock that holds several
+     balls is a trough too.
+
+   The page shows each trough's count (`Trough 1 +1`: one in it, one waiting to go in), and the
+   Log shows each move (`TROUGH SW_BALL_1 served a ball: 1 left`).
+
+   The same file works in scenarios (`include machine.sim`); there `fire SOL_X` fires a coil
+   yourself, to try your physics. Physics stays out of the layout: the layout is positions only.
 6. **Save layout.** To share the layout and the physics, copy them into a clone of RPUMachines as
    `layouts/<machine>.json` and `physics/<machine>.sim` (like
    [Star Trek's](https://github.com/wifijt/RPUMachines/blob/main/physics/bally-star-trek-1979.sim))

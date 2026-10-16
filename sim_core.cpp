@@ -260,8 +260,18 @@ static PlayfieldAndCabinetSwitch *GameSwitchesSim = NULL;
 
 static void FireSolenoid(byte sol, const char *why);
 
+static bool SolenoidStackOn = false;
+
+// Ball troughs: each counts its balls and sets its switches to match, filled from the exit end.
+// trough SW_EXIT SW_NEXT ... serve SOL_X [to SW_Y] [feed SOL_Z from SW_OUTHOLE] [balls N]
+struct SimTrough { std::vector<int> sw; int serve = -1, to = -1, feed = -1, from = -1; int balls = 0, outhole = 0; };
+static std::vector<SimTrough> Troughs;
+static SimTrough *TroughByEntry(int sw) { for (SimTrough &t : Troughs) if (t.from == sw) return &t; return NULL; }
+static SimTrough *TroughByExit(int sw) { for (SimTrough &t : Troughs) if (t.sw[0] == sw) return &t; return NULL; }
+
 static void SimCloseSwitch(int sw, const char *by = NULL) {
   if (sw < 0 || sw >= SIM_NUM_SWITCHES) return;
+  if (SimTrough *t = TroughByEntry(sw)) t->outhole++;                 // a ball arrived (another may already be there)
   if (SwitchState[sw]) return;
   SwitchState[sw] = true;
   if (by) Log("SW close %s (by %s)", NameOf("SW_", sw).c_str(), by);
@@ -269,7 +279,7 @@ static void SimCloseSwitch(int sw, const char *by = NULL) {
   SwitchStack.push_back((byte)sw);
   // pop bumpers and slingshots are fired by the OS itself, from the switch
   for (int i = 0; i < NumGameSwitchesSim; i++) {
-    if (GameSwitchesSim[i].switchNum == sw && GameSwitchesSim[i].solenoid != SOL_NONE && RPU_IsSolenoidStackEnabled()) {
+    if (GameSwitchesSim[i].switchNum == sw && GameSwitchesSim[i].solenoid != SOL_NONE && SolenoidStackOn) {
       FireSolenoid(GameSwitchesSim[i].solenoid, "switch");
     }
   }
@@ -277,6 +287,7 @@ static void SimCloseSwitch(int sw, const char *by = NULL) {
 
 static void SimOpenSwitch(int sw, bool quiet = false) {
   if (sw < 0 || sw >= SIM_NUM_SWITCHES) return;
+  if (SimTrough *t = TroughByEntry(sw)) t->outhole = 0;
   if (!SwitchState[sw]) return;
   SwitchState[sw] = false;
   if (!quiet) Log("SW open %s", NameOf("SW_", sw).c_str());
@@ -304,7 +315,6 @@ struct SimPhysics { int solenoid; std::vector<int> opens, closes; };
 static std::vector<SimPhysics> Physics;
 struct SimTimedSol { byte sol; unsigned long when; bool override; };
 static std::vector<SimTimedSol> TimedSols;
-static bool SolenoidStackOn = false;
 static bool FlippersDisabled = true;
 static unsigned long SolenoidFireCount[32];
 
@@ -318,6 +328,32 @@ static void FireSolenoid(byte sol, const char *why) {
       if (SwitchState[sw]) { SwitchState[sw] = false; Log("SW open %s (by %s)", NameOf("SW_", sw).c_str(), NameOf("SOL_", sol).c_str()); }
     }
     for (int sw : p.closes) SimCloseSwitch(sw, NameOf("SOL_", sol).c_str());
+  }
+  std::string by = NameOf("SOL_", sol);
+  for (size_t k = 0; k < Troughs.size(); k++) {
+    SimTrough &t = Troughs[k];
+    std::string name = NameOf("SW_", t.sw[0]);
+    if (sol == t.serve) {
+      if (t.balls == 0) Log("TROUGH %s empty: %s fired with no ball to serve", name.c_str(), by.c_str());
+      else {
+        int sw = t.sw[--t.balls];                                         // the last ball in line moves up: its switch opens
+        if (SwitchState[sw]) { SwitchState[sw] = false; Log("SW open %s (by %s)", NameOf("SW_", sw).c_str(), by.c_str()); }
+        Log("TROUGH %s served a ball: %d left", name.c_str(), t.balls);
+        if (t.to >= 0) {                                                  // it lands on a switch (another trough's entry, a lane...)
+          SimCloseSwitch(t.to, by.c_str());
+        }
+      }
+    }
+    if (sol == t.feed && t.outhole > 0) {
+      if (t.balls >= (int)t.sw.size()) Log("TROUGH %s full: %s can't feed it", name.c_str(), by.c_str());
+      else {
+        if (--t.outhole == 0 && SwitchState[t.from]) {
+          SwitchState[t.from] = false; Log("SW open %s (by %s)", NameOf("SW_", t.from).c_str(), by.c_str());
+        }
+        SimCloseSwitch(t.sw[t.balls++], by.c_str());
+        Log("TROUGH %s fed a ball: %d in it", name.c_str(), t.balls);
+      }
+    }
   }
 }
 
@@ -347,6 +383,13 @@ void RPU_SetDisableFlippers(boolean disableFlippers, byte) {
 }
 boolean RPU_GetDisableFlippers(byte) { return FlippersDisabled; }
 void RPU_SetContinuousSolenoidBit(boolean, byte) {}
+void RPU_SetContinuousSolenoid(boolean solOn, byte solNum) { Log("SOL %s %s (continuous)", NameOf("SOL_", solNum).c_str(), solOn ? "on" : "off"); }
+void RPU_CycleAllDisplays(unsigned long, byte) {}
+// Williams sound boards (games without a WAV Trigger): the sound number is logged, nothing plays
+void RPU_SetSoundValueLimits(unsigned short, unsigned short) {}
+void RPU_PushToSoundStack(unsigned short soundNumber, byte) { Log("SND %d", soundNumber); }
+boolean RPU_PushToTimedSoundStack(unsigned short soundNumber, byte, unsigned long) { Log("SND %d (timed)", soundNumber); return true; }
+void RPU_UpdateTimedSoundStack(unsigned long) {}
 boolean RPU_FireContinuousSolenoid(byte, byte) { return true; }
 byte RPU_ReadContinuousSolenoids() { return 0; }
 void RPU_DisableSolenoidStack() { SolenoidStackOn = false; }
@@ -678,8 +721,33 @@ static void RunCommand(const std::string &line, const std::string &dir) {
   if (cmd == "include") {
     std::string f; in >> f;
     std::string savedFile = CurrentFile; int savedLine = CurrentLine;
-    RunFile(dir + "/" + f);
+    RunFile(!f.empty() && f[0] == '/' ? f : dir + "/" + f);
     CurrentFile = savedFile; CurrentLine = savedLine;
+  } else if (cmd == "trough") {             // trough SW_EXIT SW_NEXT ... serve SOL_X [to SW_Y] [feed SOL_Z from SW_W] [balls N]
+    std::string word, key;
+    SimTrough t;
+    int balls = 0;
+    while (in >> word) {
+      if (word == "serve" || word == "to" || word == "feed" || word == "from" || word == "balls") { key = word; continue; }
+      if (key.empty()) t.sw.push_back(NeedName(word));
+      else if (key == "serve") t.serve = NeedName(word);
+      else if (key == "to") t.to = NeedName(word);
+      else if (key == "feed") t.feed = NeedName(word);
+      else if (key == "from") t.from = NeedName(word);
+      else if (key == "balls") balls = atoi(word.c_str());
+    }
+    if (t.sw.empty() || t.serve < 0) Fail("trough: list its switches from the exit end, then serve SOL_X");
+    if ((t.feed < 0) != (t.from < 0)) Fail("trough: feed SOL_Z and from SW_W go together");
+    if (balls < 0 || balls > (int)t.sw.size()) Fail("trough: it holds %d balls", (int)t.sw.size());
+    Troughs.push_back(t);
+    if (balls) {                                                          // power on with balls in it
+      Boot();
+      SimTrough &tt = Troughs.back();
+      for (int i = 0; i < balls; i++) SimCloseSwitch(tt.sw[tt.balls++], "power-on");
+    }
+  } else if (cmd == "fire") {               // fire SOL_X: fire a coil yourself, to try the physics
+    std::string sol; in >> sol;
+    Boot(); FireSolenoid(NeedName(sol), "scenario");
   } else if (cmd == "physics") {            // physics SOL_X opens SW_A SW_B ... [closes SW_C ...]
     std::string sol, word;
     in >> sol;
@@ -866,6 +934,16 @@ static void RunCommand(const std::string &line, const std::string &dir) {
       unsigned long conflicts = DisplayConflicts[d - 1];
       DisplayConflicts[d - 1] = 0;
       if (conflicts) Fail("display %d was written with two different values in one pass, %lu times", d, conflicts);
+    } else if (what == "trough") {          // check trough SW_EXIT OP N  (balls in the trough named by its exit switch)
+      std::string sw, op; long v; in >> sw >> op >> v;
+      SimTrough *t = TroughByExit(NeedName(sw));
+      if (!t) Fail("no trough with exit switch %s", sw.c_str());
+      if (!Compare(t->balls, op, v)) Fail("trough %s has %d balls, wanted %s %ld", sw.c_str(), t->balls, op.c_str(), v);
+    } else if (what == "waiting") {         // check waiting SW_ENTRY OP N  (balls waiting on a trough's entry switch)
+      std::string sw, op; long v; in >> sw >> op >> v;
+      SimTrough *t = TroughByEntry(NeedName(sw));
+      if (!t) Fail("no trough fed from %s", sw.c_str());
+      if (!Compare(t->outhole, op, v)) Fail("%s has %d balls waiting, wanted %s %ld", sw.c_str(), t->outhole, op.c_str(), v);
     } else if (what == "credits") {
       std::string op; long v; in >> op >> v;
       if (!Compare(CreditsShown, op, v)) Fail("credit display is %d, wanted %s %ld", CreditsShown, op.c_str(), v);
@@ -970,6 +1048,12 @@ static void LiveFrame() {
   std::string o = "{\"t\":" + std::to_string(SimNow) + ",\"state\":" + std::to_string((int)MachineState);
   o += ",\"ball\":" + std::to_string((int)CurrentBallInPlay) + ",\"player\":" + std::to_string((int)CurrentPlayer + 1);
   o += ",\"credits\":" + std::to_string(CreditsShown) + ",\"bip\":" + std::to_string(BallInPlayShown);
+  if (!Troughs.empty()) {                                                 // "troughs":[[name, balls, waiting], ...]
+    o += ",\"troughs\":[";
+    for (size_t k = 0; k < Troughs.size(); k++)
+      o += (k ? ",[\"" : "[\"") + JsonEsc(NameOf("SW_", Troughs[k].sw[0])) + "\"," + std::to_string(Troughs[k].balls) + "," + std::to_string(Troughs[k].outhole) + "]";
+    o += "]";
+  }
   {
     std::string w;
     SimWatchValues(w);
