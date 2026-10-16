@@ -72,10 +72,8 @@ check score 1 >= 1
 ```
 
 Time is game time: `run 60000` takes a moment, not a minute. The log shows every switch, coil and
-sound with its time. `examples/` has scenarios for Dick's
-[ExampleMachine](https://github.com/RetroPinUpgrade/ExampleMachine) and for
-[PinNode-Example](https://github.com/pin-node/PinNode-Example). All the commands and checks are in
-[docs/SCENARIOS.md](docs/SCENARIOS.md).
+sound with its time. `examples/ExampleMachine/` is a scenario to copy from. All the commands and
+checks are in [docs/SCENARIOS.md](docs/SCENARIOS.md).
 
 ## Play a game (browser)
 
