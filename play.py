@@ -53,11 +53,13 @@ binary = HERE / "build" / sketch.name / "sim"
 cmd = [str(binary), "--live"] + ([str(mdir / "machine.sim")] if mdir and (mdir / "machine.sim").exists() else [])
 if mdir and not (mdir / "machine.sim").exists():
     print(f"no {mdir / 'machine.sim'}: the ball won't start in the outhole (see README: Your own game)")
-sim = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1,
-                       cwd=str(mdir if mdir and mdir.is_dir() else HERE))
-
+def start_sim():
+    return subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1,
+                            cwd=str(mdir if mdir and mdir.is_dir() else HERE))
+sim = start_sim()
 names = json.loads(sim.stdout.readline())        # the first line: SW_/SOL_/LAMP_/... names
 
+wavlens = []                                      # "wavlen TRACK MS" lines, sent again after a reset
 sounds = {}                                       # track number -> file, from the WAV Trigger folder
 if a.sounds:
     import re, wave
@@ -68,7 +70,8 @@ if a.sounds:
             sounds.setdefault(t, f)
             try:                                  # the game hears each track end when the real one would
                 with wave.open(str(f)) as w:
-                    sim.stdin.write(f"wavlen {t} {int(1000 * w.getnframes() / w.getframerate())}\n")
+                    wavlens.append(f"wavlen {t} {int(1000 * w.getnframes() / w.getframerate())}\n")
+                    sim.stdin.write(wavlens[-1])
             except (wave.Error, EOFError, OSError):
                 pass
     sim.stdin.flush()
@@ -104,13 +107,24 @@ elif layout.get("names") and (lib / "names" / layout["names"]).exists():
     labels = json.loads((lib / "names" / layout["names"]).read_text())
 
 clients, lock = [], threading.Lock()
-def pump():
-    for line in sim.stdout:
+def pump(proc):
+    for line in proc.stdout:
+        if proc is not sim:                      # a reset replaced it
+            return
         with lock:
             for q in list(clients): q.put(line)
-    with lock:
-        for q in list(clients): q.put(None)
-threading.Thread(target=pump, daemon=True).start()
+threading.Thread(target=pump, args=(sim,), daemon=True).start()
+
+def reset():
+    """Restart the game, like switching the machine off and on (EEPROM starts fresh too)."""
+    global sim
+    old = sim
+    sim = start_sim()
+    old.terminate()
+    sim.stdout.readline()                        # the names line
+    for l in wavlens: sim.stdin.write(l)
+    sim.stdin.flush()
+    threading.Thread(target=pump, args=(sim,), daemon=True).start()
 
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
@@ -167,6 +181,10 @@ class H(BaseHTTPRequestHandler):
             save_path.parent.mkdir(parents=True, exist_ok=True)
             save_path.write_text(json.dumps(new, indent=1) + "\n")
             layout.clear(); layout.update(new)
+            return self.send(204, b"", "text/plain")
+        if self.path == "/reset":
+            with lock:
+                reset()
             return self.send(204, b"", "text/plain")
         if self.path == "/cmd":
             line = self.rfile.read(int(self.headers.get("Content-Length", 0))).decode().strip().splitlines()[0][:200]

@@ -74,6 +74,7 @@
   <h1 id="game">rpu-sim</h1>
   <span id="cabinet"></span>
   <button id="drain" title="Close the outhole switch">Drain <kbd>Space</kbd></button>
+  <button id="resetbtn" title="Restart the game, as if the machine were switched off and on">Reset game</button>
   <button id="editbtn" title="Move switches, coils and lamps; place lamps">Edit layout</button>
   <button id="soundbtn" hidden title="Browsers only play sound after a click">Sound: off</button>
   <span class="state" id="state"></span>
@@ -180,6 +181,11 @@ async function start() {
     $("#soundbtn").onclick = soundOn;
     document.addEventListener("pointerdown", soundOn, { once: true }); document.addEventListener("keydown", soundOn, { once: true });
   }
+  $("#resetbtn").onclick = async () => {
+    for (const k of Object.keys(voices)) stopTrack(k);
+    $("#state").textContent = "restarting…"; $("#log").innerHTML = "";
+    await fetch("/reset", { method: "POST" });
+  };
   const ev = new EventSource("/events");
   ev.onmessage = m => frame(JSON.parse(m.data));
   ev.onerror = () => { $("#state").textContent = "disconnected"; };
@@ -398,7 +404,7 @@ function audio(events) {
     else if (what === "play") playTrack(t);
     else if (what === "stop") stopTrack(t);
     else if (what === "stopall") for (const k of Object.keys(voices)) stopTrack(k);
-    else if (what === "loop") { const v = voices[t]; if (v) v.src.loop = !!a; else if (a) playTrack(t).then(() => voices[t] && (voices[t].src.loop = true)); }
+    else if (what === "loop") { const v = voices[t]; if (v) v.src.loop = !!a; else if (a) { starting.add(t); buffer(t).then(() => setTimeout(() => { if (voices[t]) voices[t].src.loop = true; starting.delete(t); }, 0)); } }
     else if (what === "gain") { const v = voices[t]; if (v) v.gain.gain.value = Math.pow(10, a / 20); }
     else if (what === "fade") {
       const v = voices[t]; if (!v) continue;
@@ -407,6 +413,21 @@ function audio(events) {
       if (c) setTimeout(() => stopTrack(t), b);
     }
   }
+}
+
+// the page may join after a track started (opened late, or sound turned on mid-game): start any
+// looping track (music) the game is playing that we aren't, and stop what the game no longer plays
+const starting = new Set();
+function catchUp(playing) {
+  if (!actx) return;
+  const now = new Set(playing.map(p => p[0]));
+  for (const [t, loop] of playing) {
+    if (loop && !voices[t] && !starting.has(t)) {
+      starting.add(t);
+      playTrack(t).then(() => { if (voices[t]) voices[t].src.loop = true; starting.delete(t); });
+    }
+  }
+  for (const k of Object.keys(voices)) if (!now.has(+k) && !starting.has(+k)) stopTrack(k);
 }
 
 function frame(f) {
@@ -420,6 +441,7 @@ function frame(f) {
   for (const [n, els] of Object.entries(swEls)) for (const el of els) el.classList.toggle("closed", closed.has(+n));
   for (const n of f.fired) for (const el of (coilEls[n] || [])) { el.classList.add("hit"); setTimeout(() => el.classList.remove("hit"), 150); }
   if (f.audio && f.audio.length) audio(f.audio);
+  if (f.playing) catchUp(f.playing);
   for (const l of f.log) addLog(l, / SOL /.test(l) ? "sol" : / SW /.test(l) ? "sw" : / PN /.test(l) ? "pn" : "");
 }
 function addLog(text, cls) {

@@ -122,6 +122,9 @@ as a pull request), or into `machines/<machine>/layout.json` here.
 copy to its SD card: files named by track number, `0201_hyperspace.wav` or `201.wav`). Your browser
 plays each track as the game starts, loops, fades and stops it, and the game hears each track end
 when the real file would. Click **Sound** (or anywhere) once: browsers only play after a click.
+Music that was already looping when you turned sound on joins in.
+
+**Reset game** restarts the game as if the machine were switched off and on (EEPROM starts fresh).
 
 **Dick Hamill's [Lamp Animator](https://pinballrefresh.com/animation-generator)** maps lamps the same
 way, to generate lamp animations. In the editor, **Export** saves the playfield image and the lamp

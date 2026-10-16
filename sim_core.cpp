@@ -973,6 +973,11 @@ static void LiveFrame() {
   for (int sw = 0; sw < SIM_NUM_SWITCHES; sw++) if (SwitchState[sw]) { o += (first ? "" : ","); o += std::to_string(sw); first = false; }
   o += "],\"fired\":[";
   for (size_t k = 0; k < LiveFired.size(); k++) o += (k ? "," : "") + std::to_string(LiveFired[k]);
+  o += "],\"playing\":[";                       // what the WAV Trigger is playing now: [track, looping]
+  first = true;
+  for (int v = 0; v < SIM_WAV_VOICES; v++) if (SimVoices[v].track) {
+    o += (first ? "[" : ",[") + std::to_string(SimVoices[v].track) + "," + (SimVoices[v].looping ? "1" : "0") + "]"; first = false;
+  }
   o += "],\"audio\":[";
   for (size_t k = 0; k < LiveAudio.size(); k++) o += (k ? "," : "") + LiveAudio[k];
   o += "],\"log\":[";
