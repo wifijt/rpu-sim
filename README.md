@@ -129,9 +129,20 @@ playfield.
    onto its spot. Click a placed one to select it: **Remove** (or Delete) takes it off, **+** and
    **−** resize it. If the machine has a Visual Pinball table, `tools/vpx_import.py` places most of
    the lamps for you (see Tools).
-5. **Add its physics,** so the ball gets served. In the layout file, say which coil opens which
-   switches (outhole kicker, saucers, drop target resets) and where the ball starts. Copy
-   `physics` and `ballStarts` from the Star Trek layout.
+5. **Add its physics,** so the ball gets served: which coil opens which switches (outhole kicker,
+   saucers, drop target resets) and where the ball starts. Start with a `.sim` file like
+   [examples/ExampleMachine/machine.sim](examples/ExampleMachine/machine.sim) and try it with
+   `--physics`:
+
+   ```
+   physics SOL_SERVE_BALL opens SW_OUTHOLE
+   physics SOL_DROP_BANK_R_RESET opens SW_DROP_R_1 SW_DROP_R_2 SW_DROP_R_3
+   close SW_OUTHOLE
+   ```
+
+   When it works, put it in the layout as `physics` and `ballStarts`, the way the
+   [Star Trek layout](https://github.com/wifijt/RPUMachines/blob/main/layouts/bally-star-trek-1979.json)
+   does, so it travels with the machine.
 6. **Save layout.** To share it, copy it into a clone of RPUMachines' `layouts/` and open a pull
    request.
 
