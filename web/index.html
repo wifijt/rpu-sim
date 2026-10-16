@@ -23,8 +23,9 @@
   html, body { height: 100%; }
   body { display: flex; flex-direction: column; overflow: hidden; }
   main { flex: 1; min-height: 0; display: grid; grid-template-columns: var(--left, 50%) 10px minmax(280px, 1fr); gap: 6px; padding: 16px; }
-  #left { display: flex; flex-direction: column; min-height: 0; min-width: 280px; }
-  #left .panel.pf { flex: 1; min-height: 0; position: relative; padding: 0; display: flex; flex-direction: column; }
+  /* the left side scrolls as one: scores on top, then the playfield at the window's full height */
+  #left { display: flex; flex-direction: column; min-height: 0; min-width: 280px; overflow-y: auto; }
+  #left .panel.pf { flex: none; height: calc(100vh - var(--header-h, 60px) - 32px); position: relative; padding: 0; display: flex; flex-direction: column; }
   #pfscroll { flex: 1; min-height: 0; overflow: auto; padding: 8px; }
   #pfscroll svg { margin: 0 auto; }
   #zoombar { display: flex; gap: 4px; align-items: center; padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--dim); }
@@ -109,7 +110,7 @@
     <div id="backglass"></div>
     <div id="info"></div>
     <div class="panel pf">
-      <div id="zoombar"><span>Playfield</span><span style="flex:1"></span>
+      <div id="zoombar"><span id="miniscore" style="font-variant-numeric:tabular-nums;color:var(--text)">Playfield</span><span style="flex:1"></span>
         <button id="zfit" title="The whole playfield in view">Fit</button>
         <button id="zwidth" title="Fill the width; scroll up and down">Width</button>
         <button id="zout" title="Zoom out (⌘-scroll)">−</button><span id="zpct" style="min-width:4ch;text-align:center">100%</span><button id="zin" title="Zoom in (⌘-scroll)">+</button>
@@ -594,6 +595,11 @@ $("#pfscroll").addEventListener("wheel", e => {
 }, { passive: false });
 new ResizeObserver(() => pfSize()).observe($("#pfscroll"));
 
+// the playfield panel is exactly the window's height below the header; start scrolled to it
+function headerHeight() { document.documentElement.style.setProperty("--header-h", document.querySelector("header").offsetHeight + "px"); }
+headerHeight(); addEventListener("resize", headerHeight);
+setTimeout(() => { const left = $("#left"), pf = document.querySelector("#left .panel.pf"); left.scrollTop = pf.offsetTop - left.offsetTop; }, 300);
+
 function frame(f) {
   if (f.error) { addLog(`ERROR ${f.error}`, "err"); return; }
   if (f.lamps === undefined) return;
@@ -604,6 +610,9 @@ function frame(f) {
   $("#info").innerHTML = `<span>Mode <b>${stName}</b></span><span>Player <b>${f.player}</b></span><span>Time <b style="display:inline-block;min-width:7ch;text-align:right">${(f.t / 1000).toFixed(1)} s</b></span>`;
   $("#state").textContent = stName;
   if (f.watch) showWatch(f.watch);
+  const up = f.state > 0 ? f.player : 0, sc = up ? f.disp[up - 1].trim() || "0" : "";
+  $("#miniscore").innerHTML = up ? `Player ${up} <b style="color:var(--seg)">${sc}</b> · Ball ${f.bip >= 0 ? f.bip : "–"} · Credits ${f.credits >= 0 ? f.credits : "–"}`
+                                 : `${stName} · Credits ${f.credits >= 0 ? f.credits : "–"}`;
   for (const [n, els] of Object.entries(lampEls)) { const c = f.lamps[n]; for (const el of els) { el.classList.toggle("on", c === "1"); el.classList.toggle("dim", c === "d"); } }
   const closed = new Set(f.sw);
   for (const [n, els] of Object.entries(swEls)) for (const el of els) el.classList.toggle("closed", closed.has(+n));
