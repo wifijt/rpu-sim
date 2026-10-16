@@ -1,5 +1,5 @@
 # Dick Hamill's ExampleMachine (github.com/RetroPinUpgrade/ExampleMachine): what the playfield does
-# on its own. Scenarios include it. layout.json has the same physics for ./play.py.
+# on its own. Scenarios include it; ./play.py uses it with --physics.
 
 # The ball trough kicks the ball out of the outhole
 physics SOL_SERVE_BALL opens SW_OUTHOLE

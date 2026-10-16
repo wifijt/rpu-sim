@@ -20,7 +20,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("sketch")
 ap.add_argument("--machine", help="the machine's id in RPUMachines (e.g. bally-star-trek-1979)")
 ap.add_argument("--layout", help="a layout .json file to use (and save to) in place of the machine's")
-ap.add_argument("--physics", help="a .sim file of physics lines (which switches each coil opens or closes); used in place of the layout's")
+ap.add_argument("--physics", help="a .sim file: which switches each coil opens or closes, and where the ball starts (default: RPUMachines' physics/<machine>.sim)")
 ap.add_argument("--image", help="a picture of the playfield (e.g. extracted from a VPX table) to use as the background; line it up once with Align image")
 ap.add_argument("--sounds", help="the game's WAV Trigger folder (files named by track number: 0201_x.wav, 201.wav); your browser plays them")
 ap.add_argument("--watch", help="game variables to show live, e.g. GameMode,BonusX (remembered for next time)")
@@ -29,6 +29,8 @@ ap.add_argument("--no-browser", action="store_true")
 a = ap.parse_args()
 if a.layout and not Path(a.layout).exists():
     sys.exit(f"no layout file {a.layout}")
+if a.physics and not Path(a.physics).exists():
+    sys.exit(f"no physics file {a.physics}")
 sketch = Path(a.sketch).resolve()
 lib = Path(os.environ.get("MACHINES_LIB") or Path.home() / "Documents/Arduino/libraries/RPUMachines")
 
@@ -74,25 +76,19 @@ if layout_path:
     print(f"layout: {layout_path}")
 
 def setup_file():
-    """What the playfield does on its own: --physics, else the layout's physics."""
+    """What the playfield does on its own: --physics, else RPUMachines' physics/<machine>.sim."""
     if a.physics:
         return Path(a.physics).resolve()
-    if layout.get("physics") or layout.get("ballStarts"):
-        out = HERE / "build" / sketch.name / "machine.sim"
-        out.parent.mkdir(parents=True, exist_ok=True)
-        lines = [f"physics {p['coil']}" + "".join(f" {k} " + " ".join(str(w) for w in p[k]) for k in ("opens", "closes") if p.get(k))
-                 for p in layout.get("physics", [])]
-        lines += [f"close {w}" for w in layout.get("ballStarts", [])]
-        out.write_text("\n".join(lines) + "\n")
-        return out
-    print("no physics: the ball won't start in the outhole (add physics to the layout, or use --physics)")
+    if mid and (lib / "physics" / f"{mid}.sim").exists():
+        return lib / "physics" / f"{mid}.sim"
+    print("no physics: the ball won't start in the outhole (use --physics, see the README)")
     return None
 
 def start_sim():
     setup = setup_file()
     cmd = [str(binary), "--live"] + ([str(setup)] if setup else [])
     return subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1,
-                            cwd=str(Path(a.physics).resolve().parent if a.physics else HERE))
+                            cwd=str(HERE))
 sim = start_sim()
 names = json.loads(sim.stdout.readline())        # the first line: SW_/SOL_/LAMP_/... names
 

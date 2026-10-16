@@ -2,7 +2,7 @@
  "machine": "ExampleMachine (Dick Hamill's generic RPU example)",
  "header": "ExampleMachineMEGA.h",
  "aspect": 2,
- "source": "Made up: ExampleMachine isn't a real machine. Positions follow its switch, coil and lamp names; physics from its coils.",
+ "source": "Made up: ExampleMachine isn't a real machine. Positions follow its switch, coil and lamp names.",
  "items": [
   {
    "kind": "bumper",
@@ -312,42 +312,5 @@
    "x": 0.5,
    "y": 0.8
   }
- ],
- "physics": [
-  {
-   "coil": 8,
-   "opens": [
-    7
-   ],
-   "note": "ball serve: the ball leaves the outhole"
-  },
-  {
-   "coil": 7,
-   "opens": [
-    32
-   ],
-   "note": "saucer kicks out"
-  },
-  {
-   "coil": 2,
-   "opens": [
-    16,
-    17,
-    18
-   ],
-   "note": "right drop bank stands up"
-  },
-  {
-   "coil": 3,
-   "opens": [
-    24,
-    25,
-    26
-   ],
-   "note": "left drop bank stands up"
-  }
- ],
- "ballStarts": [
-  7
  ]
 }

@@ -53,7 +53,7 @@ cd rpu-sim
 A scenario is a text file: one command per line.
 
 ```
-# the playfield's physics: which coil opens which switch
+# the machine's physics: which switches each coil opens or closes
 include machine.sim
 # power on and settle into attract, then press Start
 run 3000
@@ -83,7 +83,7 @@ comes with rpu-sim:
 
 ```bash
 cd rpu-sim
-./play.py ../ExampleMachineMEGA --layout examples/ExampleMachine/layout.json
+./play.py ../ExampleMachineMEGA --layout examples/ExampleMachine/layout.json --physics examples/ExampleMachine/machine.sim
 ```
 
 It builds the game (about 30 s), runs it, and opens http://localhost:8765. Coin (`5`), Start (`1`),
@@ -106,7 +106,7 @@ on the playfield. For anything else, see Add a machine.
 | `--watch GameMode,BonusX` | Game variables to show live. |
 | `--machine <id>` | The RPUMachines machine, when it can't tell from the header the game includes. |
 | `--layout <file.json>` | A layout file to use and save to, in place of the machine's. |
-| `--physics <file.sim>` | Which switches each coil opens or closes, for a machine with no layout (or to try changes). The layout's physics otherwise. |
+| `--physics <file.sim>` | Which switches each coil opens or closes. Without it, RPUMachines' `physics/<machine>.sim`. |
 | `--port`, `--no-browser` | |
 
 **On the page**
@@ -164,12 +164,12 @@ playfield.
    physics moved, as `SW open SW_OUTHOLE (by SOL_SERVE_BALL)`. Switches the ball hits while it's in
    play (bumpers, slings, rollovers) aren't physics: you click those.
 
-   When it works, put it in the layout as `physics` and `ballStarts`, the way
-   [examples/ExampleMachine/layout.json](examples/ExampleMachine/layout.json) and the
-   [Star Trek layout](https://github.com/wifijt/RPUMachines/blob/main/layouts/bally-star-trek-1979.json)
-   do, so it travels with the machine.
-6. **Save layout.** To share it, copy it into a clone of RPUMachines' `layouts/` and open a pull
-   request.
+   The same file works in scenarios (`include machine.sim`). Physics stays out of the layout: the
+   layout is positions only.
+6. **Save layout.** To share the layout and the physics, copy them into a clone of RPUMachines as
+   `layouts/<machine>.json` and `physics/<machine>.sim` (like
+   [Star Trek's](https://github.com/wifijt/RPUMachines/blob/main/physics/bally-star-trek-1979.sim))
+   and open a pull request. play.py then finds both on its own.
 
 Layouts are saved to `~/Documents/rpu-sim/layouts/` (or `RPU_SIM_LAYOUTS`), outside every repo, and
 load from there first. If `MACHINES_LIB` points at a git clone of RPUMachines, they're saved
