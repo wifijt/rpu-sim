@@ -1,5 +1,7 @@
 # rpu-sim
 
+![Star Trek 2022 running in rpu-sim: backglass, playfield with lamps lit, watch and lamp panels](docs/screenshot.jpg)
+
 Runs a RetroPinUpgrade (RPU) game on your computer, with no Mega and no machine. The game's
 own code (the sketch, `DisplayHandler`, `OperatorMenus`, `AudioHandler`) is compiled for the
 host and linked against `sim_core.cpp`, which stands in for the Arduino core, `RPU.cpp`
