@@ -19,12 +19,24 @@
   button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; font: inherit; }
   button:hover { border-color: var(--dim); }
   button kbd { color: var(--dim); font-size: 11px; margin-left: 4px; }
-  main { display: grid; grid-template-columns: minmax(280px, 520px) 1fr; gap: 16px; padding: 16px; }
-  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  /* split window: backglass and playfield stay put on the left; the lists scroll on the right */
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  main { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(320px, 1fr); gap: 16px; padding: 16px; }
+  #left { display: flex; flex-direction: column; min-height: 0; }
+  #left .panel.pf { flex: 1; min-height: 0; display: flex; justify-content: center; }
+  #left .panel.pf svg { height: 100%; width: auto; max-width: 100%; }
+  .side { overflow-y: auto; min-height: 0; padding-right: 4px; }
+  @media (max-width: 860px) {
+    body { overflow: auto; display: block; }
+    main { grid-template-columns: 1fr; }
+    #left .panel.pf svg { height: auto; width: 100%; }
+    .side { overflow: visible; }
+  }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
   .panel h2 { font-size: 13px; font-weight: 600; color: var(--dim); margin: 0 0 8px; text-transform: uppercase; letter-spacing: .05em; }
-  #backglass { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
-  .disp { font: 600 26px/1 "SF Mono", Menlo, monospace; color: var(--seg); background: #0b0806; border-radius: 6px; padding: 8px 10px; text-align: right; letter-spacing: .12em; text-shadow: 0 0 8px rgba(255,122,42,.6); white-space: pre; }
+  #backglass { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; width: 100%; min-width: 300px; }
+  .disp { font: 600 22px/1 "SF Mono", Menlo, monospace; color: var(--seg); background: #0b0806; border-radius: 6px; padding: 8px 10px; text-align: right; letter-spacing: .12em; text-shadow: 0 0 8px rgba(255,122,42,.6); white-space: pre; }
   .disp small { display: block; font: 11px system-ui; color: var(--dim); text-align: left; letter-spacing: 0; text-shadow: none; margin-bottom: 4px; }
   .disp.up { outline: 1px solid var(--seg); }
   .disp.cbip { grid-column: 1 / -1; display: flex; justify-content: center; gap: 48px; }
@@ -33,7 +45,7 @@
   #watch b { color: var(--dim); font-weight: 400; } #watch .chg { color: var(--lamp-on); }
   #info { display: flex; gap: 16px; color: var(--dim); font-size: 13px; margin-bottom: 8px; }
   #info b { color: var(--text); }
-  svg { width: 100%; height: auto; display: block; }
+  svg { display: block; }
   .pf-outline { fill: var(--playfield); stroke: var(--rail); stroke-width: 6; }
   .body { fill: #24443a; stroke: #3e6a5a; stroke-width: 3; }
   .body.hit { fill: var(--coil); }
@@ -86,10 +98,10 @@
   <span class="state" id="state"></span>
 </header>
 <main>
-  <div>
+  <div id="left">
     <div id="backglass"></div>
     <div id="info"></div>
-    <div class="panel"><svg id="pf"></svg></div>
+    <div class="panel pf"><svg id="pf"></svg></div>
   </div>
   <div class="side">
     <div class="panel" id="editor" hidden>
