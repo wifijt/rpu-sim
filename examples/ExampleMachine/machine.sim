@@ -1,4 +1,13 @@
-# Dick Hamill's ExampleMachine (github.com/RetroPinUpgrade/ExampleMachine): no PinNode.
+# Dick Hamill's ExampleMachine (github.com/RetroPinUpgrade/ExampleMachine): what the playfield does
+# on its own. Scenarios include it; ./play.py ... --physics examples/ExampleMachine/machine.sim uses it too.
+
+# The ball trough kicks the ball out of the outhole
 physics SOL_SERVE_BALL opens SW_OUTHOLE
-# The ball starts in the outhole
+# The saucer kicks out its ball
+physics SOL_SAUCER opens SW_SAUCER
+# Each drop target bank reset stands its three targets up
+physics SOL_DROP_BANK_R_RESET opens SW_DROP_R_1 SW_DROP_R_2 SW_DROP_R_3
+physics SOL_DROP_BANK_L_RESET opens SW_DROP_L_1 SW_DROP_L_2 SW_DROP_L_3
+
+# Power on with the ball in the outhole
 close SW_OUTHOLE

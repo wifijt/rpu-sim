@@ -84,12 +84,19 @@ cd rpu-sim
 
 It builds the game (about 30 s), runs it, and opens http://localhost:8765.
 
+ExampleMachine has no playfield layout, so give it its physics file and it plays with plain shapes:
+
+```bash
+./play.py ../ExampleMachineMEGA --physics examples/ExampleMachine/machine.sim
+```
+
 | Option | |
 |---|---|
 | `--image <picture>` | A straight-on picture of the playfield: a photo, or the one inside a Visual Pinball table. Without it you get plain shapes. |
 | `--sounds <folder>` | The game's WAV Trigger folder (what goes on its SD card: `201.wav` or `0201_name.wav`). |
 | `--watch GameMode,BonusX` | Game variables to show live. |
 | `--machine <id>` | The RPUMachines machine, when it can't tell from the header the game includes. |
+| `--physics <file.sim>` | Which coil opens which switch, for a machine with no layout (or to try changes). The layout's physics otherwise. |
 | `--port`, `--no-browser` | |
 
 **On the page**
