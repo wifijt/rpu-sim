@@ -20,6 +20,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("sketch")
 ap.add_argument("--machine", help="the machine's id in RPUMachines (e.g. bally-star-trek-1979), or a folder with layout.json")
 ap.add_argument("--manual", help="your copy of the machine's manual (PDF): its playfield drawing becomes the background")
+ap.add_argument("--image", help="a picture of the playfield (e.g. extracted from a VPX table) to use as the background; line it up once with Align image")
 ap.add_argument("--sounds", help="the game's WAV Trigger folder (files named by track number: 0201_x.wav, 201.wav); your browser plays them")
 ap.add_argument("--watch", help="game variables to show live, e.g. GameMode,BonusX (remembered for next time)")
 ap.add_argument("--port", type=int, default=8765)
@@ -109,6 +110,16 @@ if a.manual and layout.get("manual"):
             crop = {"png": (out / "playfield.png").read_bytes(), "w": w, "h": h}
     else:
         print("couldn't render the manual page; using the plain drawing")
+pfimage = None                                    # your own playfield picture: stays on your Mac, alignment saved beside it
+if a.image:
+    ip = Path(a.image).expanduser().resolve()
+    ctype = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}.get(ip.suffix.lower())
+    if not ip.exists() or not ctype:
+        sys.exit(f"--image: {ip} isn't a PNG, JPEG or WebP file")
+    align_path = ip.with_name(ip.name + ".align.json")
+    align = json.loads(align_path.read_text()) if align_path.exists() else {"rect": [0, 0, 1, 1]}
+    pfimage = {"bytes": ip.read_bytes(), "type": ctype, "align": align, "align_path": align_path}
+
 labels = {}                                       # the manufacturer's names, from RPUMachines
 if mid and (lib / "names" / f"{mid}.json").exists():
     labels = json.loads((lib / "names" / f"{mid}.json").read_text())
@@ -148,7 +159,10 @@ class H(BaseHTTPRequestHandler):
                                        "background": background is not None, "machine": mid,
                                        "saveTo": str(save_path) if save_path else None,
                                        "crop": {"w": crop["w"], "h": crop["h"]} if crop else None,
-                                       "sounds": sorted(sounds), "watch": watch}).encode(), "application/json")
+                                       "sounds": sorted(sounds), "watch": watch,
+                                       "image": pfimage["align"] if pfimage else None}).encode(), "application/json")
+        elif self.path.startswith("/pfimage") and pfimage:
+            self.send(200, pfimage["bytes"], pfimage["type"])
         elif self.path.startswith("/sound/"):
             try:
                 f = sounds.get(int(self.path.split("/")[2].split(".")[0]))
@@ -190,6 +204,16 @@ class H(BaseHTTPRequestHandler):
             save_path.parent.mkdir(parents=True, exist_ok=True)
             save_path.write_text(json.dumps(new, indent=1) + "\n")
             layout.clear(); layout.update(new)
+            return self.send(204, b"", "text/plain")
+        if self.path == "/imagealign" and pfimage:
+            try:
+                new = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+                r = [float(v) for v in new["rect"]]
+                assert len(r) == 4 and r[0] < r[2] and r[1] < r[3]
+            except Exception:
+                return self.send(400, b"not an alignment", "text/plain")
+            pfimage["align"] = {"rect": [round(v, 5) for v in r]}
+            pfimage["align_path"].write_text(json.dumps(pfimage["align"]) + "\n")
             return self.send(204, b"", "text/plain")
         if self.path == "/watch":
             global watch

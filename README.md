@@ -116,6 +116,13 @@ anywhere: RPUMachines keeps only the page number and the positions.
 and **−** / **+**; ⌘-scroll or a trackpad pinch zooms where you point. The divider between the
 playfield and the panels drags (double-click: back to 50/50).
 
+**Your own playfield picture:** `--image playfield.png` uses a straight-on picture of the playfield as
+the background, for example the one inside a Visual Pinball table (`vpxtool extract MyTable.vpx`
+puts the table's images in a folder). Click **Align image** in the playfield bar and drag the
+picture's corners (or the picture) until the drawn parts sit under the switches; the alignment is
+saved next to the picture (`playfield.png.align.json`). The **Background** menu switches between
+your picture, the manual's drawing and plain shapes. The picture never leaves your Mac.
+
 **Edit layout** (top of the page): drag any switch, coil or lamp on the playfield; drag a lamp or
 switch from the lists onto its spot to place it (or pick one and click where it sits); click one to
 select it, then **Remove** (or Delete) takes it off and **+** / **−** resize it.

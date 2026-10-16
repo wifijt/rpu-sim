@@ -32,6 +32,8 @@
   #zoombar button { padding: 2px 9px; font-size: 13px; }
   #zoombar .on { border-color: var(--dim); color: var(--text); }
   #soundbtn.on { border-color: var(--sw-closed); color: var(--sw-closed); }
+  #soundbtn { width: 13em; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* fixed: a label change mustn't move the page under the mouse */
+  header { flex-wrap: nowrap; overflow-x: auto; } header > * { flex: none; }
   #divider { cursor: col-resize; border-radius: 4px; background: var(--line); opacity: .4; }
   #divider:hover, #divider.drag { opacity: 1; background: var(--dim); }
   #info span { font-variant-numeric: tabular-nums; }
@@ -69,6 +71,9 @@
   svg.editing .sw, svg.editing .lampdot { cursor: move; }
   svg.editing .lampdot { stroke: #ffcf4a; fill: #ffcf4a33; }
   svg.editing { cursor: crosshair; }
+  svg.aligning image.pfimg { cursor: move; }
+  .handle { fill: #ffcf4a; stroke: #000; stroke-width: 2; cursor: nwse-resize; }
+  svg.aligning .sw, svg.aligning .coil, svg.aligning .lampdot { pointer-events: none; opacity: .8; }
   svg.editing .selected { stroke: #fff !important; stroke-width: 5 !important; }
   svg.drawn .lampdot.on { fill: #ffcf4acc; }
   .coil { fill: #0000; stroke: #ff5a4a55; stroke-width: 3; pointer-events: none; }
@@ -112,6 +117,8 @@
     <div id="info"></div>
     <div class="panel pf">
       <div id="zoombar"><span id="miniscore" style="font-variant-numeric:tabular-nums;color:var(--text)">Playfield</span><span style="flex:1"></span>
+        <select id="bgsel" title="Background" hidden></select>
+        <button id="alignbtn" title="Line the picture up with the switches: drag its corners, or the picture itself" hidden>Align image</button>
         <button id="zfit" title="The whole playfield in view">Fit</button>
         <button id="zwidth" title="Fill the width; scroll up and down">Width</button>
         <button id="zout" title="Zoom out (⌘-scroll)">−</button><span id="zpct" style="min-width:4ch;text-align:center">100%</span><button id="zin" title="Zoom in (⌘-scroll)">+</button>
@@ -203,6 +210,7 @@ async function start() {
   const outhole = setup.names.names.SW_OUTHOLE;
   $("#drain").onclick = () => send("close " + outhole);
   document.addEventListener("keydown", e => { if ((e.key === " " || e.key === "Enter") && e.target === document.body) { e.preventDefault(); send("close " + outhole); } });
+  setupBackgroundControls();
   drawPlayfield();
   // lamp bank: every lamp the game has a name or a label for
   const lampNums = new Set([...Object.keys(byKind.LAMP_), ...Object.keys(labels.lamps)].map(Number));
@@ -224,7 +232,7 @@ async function start() {
   try { soundWanted = localStorage.getItem("rpusim.sound") !== "off"; } catch (e) {}
   const soundLabel = () => {
     const on = soundWanted && actx && actx.state === "running";
-    $("#soundbtn").textContent = on ? "Sound: on" : soundWanted ? "Sound: click anywhere to start" : "Sound: off";
+    $("#soundbtn").textContent = on ? "Sound: on" : soundWanted ? "Sound: click to start" : "Sound: off";
     $("#soundbtn").classList.toggle("on", !!on);
   };
   const setSound = async on => {
@@ -279,10 +287,19 @@ function drawPlayfield() {
   L.items ||= [];
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   const ns = "http://www.w3.org/2000/svg", mk = (t, a, parent = svg) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); parent.append(e); return e; };
-  const bg = setup.background && L.manual;
-  if (bg) {                                     // the manual's drawing, scaled so its playfield fills the view
+  const clip = mk("clipPath", { id: "pfclip" }); mk("rect", { x: 0, y: 0, width: W, height: H }, clip);   // only the playfield
+  const bgMode = bgChoice();
+  const bg = bgMode !== "plain";
+  if (bgMode === "image") {                     // your picture, placed by its alignment (fractions of the playfield; may run past the edges)
+    const [x0, y0, x1, y1] = setup.image.rect;
+    const img = mk("image", { href: "/pfimage", x: x0 * W, y: y0 * H, width: (x1 - x0) * W, height: (y1 - y0) * H, preserveAspectRatio: "none", "clip-path": aligning ? "" : "url(#pfclip)", class: "pfimg" });
+    svg.classList.add("drawn");
+    if (aligning) {
+      mk("rect", { x: 0, y: 0, width: W, height: H, fill: "none", stroke: "#ffcf4a", "stroke-width": 3, "stroke-dasharray": "12 8", "pointer-events": "none" });
+      alignHandles(svg, mk, img, W, H);
+    }
+  } else if (bgMode === "manual") {             // the manual's drawing, scaled so its playfield fills the view
     const [l, t, r, b] = L.manual.frame, iw = W / (r - l), ih = H / (b - t);
-    const clip = mk("clipPath", { id: "pfclip" }); mk("rect", { x: 0, y: 0, width: W, height: H }, clip);   // only the playfield part of the page
     mk("image", { href: "/background.png", x: -l * iw, y: -t * ih, width: iw, height: ih, preserveAspectRatio: "none", "clip-path": "url(#pfclip)" });
     svg.classList.add("drawn");
   } else {
@@ -625,6 +642,49 @@ new ResizeObserver(() => pfSize()).observe($("#pfscroll"));
 function headerHeight() { document.documentElement.style.setProperty("--header-h", document.querySelector("header").offsetHeight + "px"); }
 headerHeight(); addEventListener("resize", headerHeight);
 setTimeout(() => { const left = $("#left"), pf = document.querySelector("#left .panel.pf"); left.scrollTop = pf.offsetTop - left.offsetTop; }, 300);
+
+// ---- background choice (your picture, the manual's drawing, or plain shapes) and image alignment
+let aligning = false;
+function bgOptions() { return [setup.image && "image", setup.background && setup.layout.manual && "manual", "plain"].filter(Boolean); }
+function bgChoice() {
+  const opts = bgOptions();
+  let c = null; try { c = localStorage.getItem("rpusim.bg"); } catch (e) {}
+  return opts.includes(c) ? c : opts[0];
+}
+function setupBackgroundControls() {
+  const opts = bgOptions(), sel = $("#bgsel"), names = { image: "Your picture", manual: "Manual drawing", plain: "Plain" };
+  sel.hidden = opts.length < 2;
+  sel.innerHTML = opts.map(o => `<option value="${o}">${names[o]}</option>`).join(""); sel.value = bgChoice();
+  sel.onchange = () => { try { localStorage.setItem("rpusim.bg", sel.value); } catch (e) {} aligning = false; drawPlayfield(); alignButton(); };
+  alignButton();
+}
+function alignButton() {
+  $("#alignbtn").hidden = bgChoice() !== "image";
+  $("#alignbtn").textContent = aligning ? "Done aligning" : "Align image";
+  $("#pf").classList.toggle("aligning", aligning);
+}
+$("#alignbtn").onclick = () => { aligning = !aligning; alignButton(); drawPlayfield(); if (!aligning) saveAlign(); };
+async function saveAlign() { await fetch("/imagealign", { method: "POST", body: JSON.stringify(setup.image) }); }
+function alignHandles(svg, mk, img, W, H) {
+  const r = setup.image.rect;
+  const corners = [[0, 1], [2, 1], [0, 3], [2, 3]];          // which rect values each corner moves: [x index, y index]
+  for (const [xi, yi] of corners) {
+    const h = mk("circle", { cx: r[xi] * W, cy: r[yi] * H, r: 16, class: "handle" });
+    h.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); alignDrag = { kind: "corner", xi, yi }; });
+  }
+  img.addEventListener("pointerdown", e => { e.preventDefault(); const p = svgPoint(e); alignDrag = { kind: "move", px: p.x, py: p.y, start: [...r] }; });
+}
+let alignDrag = null;
+document.addEventListener("pointermove", e => {
+  if (!alignDrag || !aligning) return;
+  const [W, H] = dims(), p = svgPoint(e), r = setup.image.rect;
+  if (alignDrag.kind === "corner") { r[alignDrag.xi] = +(p.x / W).toFixed(5); r[alignDrag.yi] = +(p.y / H).toFixed(5); }
+  else { const dx = (p.x - alignDrag.px) / W, dy = (p.y - alignDrag.py) / H, s0 = alignDrag.start; r[0] = +(s0[0] + dx).toFixed(5); r[2] = +(s0[2] + dx).toFixed(5); r[1] = +(s0[1] + dy).toFixed(5); r[3] = +(s0[3] + dy).toFixed(5); }
+  if (r[0] > r[2]) [r[0], r[2]] = [r[2], r[0]];
+  if (r[1] > r[3]) [r[1], r[3]] = [r[3], r[1]];
+  drawPlayfield();
+});
+document.addEventListener("pointerup", () => { if (alignDrag) { alignDrag = null; saveAlign(); } });
 
 function frame(f) {
   if (f.error) { addLog(`ERROR ${f.error}`, "err"); return; }
