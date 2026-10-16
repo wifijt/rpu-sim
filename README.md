@@ -73,21 +73,22 @@ check score 1 >= 1
 ```
 
 Time is game time: `run 60000` takes a moment, not a minute. The log shows every switch, coil and
-sound with its time. `examples/ExampleMachine/` is a scenario to copy from. All the commands and
+sound with its time. `examples/ExampleMachine/` has a scenario to copy from. All the commands and
 checks are in [docs/SCENARIOS.md](docs/SCENARIOS.md).
 
 ## Play a game (browser)
 
-Try it with ExampleMachine (cloned in the scenario try-it above). It has no playfield layout, so
-give it its physics file and play it from the Switches and Lamps lists:
+Try it with ExampleMachine (cloned in the scenario try-it above), using the example layout that
+comes with rpu-sim:
 
 ```bash
 cd rpu-sim
-./play.py ../ExampleMachineMEGA --physics examples/ExampleMachine/machine.sim
+./play.py ../ExampleMachineMEGA --layout examples/ExampleMachine/layout.json
 ```
 
 It builds the game (about 30 s), runs it, and opens http://localhost:8765. Coin (`5`), Start (`1`),
-then click switches.
+then click switches on the playfield. ExampleMachine isn't a real
+machine, so its playfield is made up.
 
 Your own game, with its playfield picture and sounds:
 
@@ -104,6 +105,7 @@ on the playfield. For anything else, see Add a machine.
 | `--sounds <folder>` | The game's WAV Trigger folder (what goes on its SD card: `201.wav` or `0201_name.wav`). |
 | `--watch GameMode,BonusX` | Game variables to show live. |
 | `--machine <id>` | The RPUMachines machine, when it can't tell from the header the game includes. |
+| `--layout <file.json>` | A layout file to use and save to, in place of the machine's. |
 | `--physics <file.sim>` | Which switches each coil opens or closes, for a machine with no layout (or to try changes). The layout's physics otherwise. |
 | `--port`, `--no-browser` | |
 
@@ -162,9 +164,10 @@ playfield.
    physics moved, as `SW open SW_OUTHOLE (by SOL_SERVE_BALL)`. Switches the ball hits while it's in
    play (bumpers, slings, rollovers) aren't physics: you click those.
 
-   When it works, put it in the layout as `physics` and `ballStarts`, the way the
+   When it works, put it in the layout as `physics` and `ballStarts`, the way
+   [examples/ExampleMachine/layout.json](examples/ExampleMachine/layout.json) and the
    [Star Trek layout](https://github.com/wifijt/RPUMachines/blob/main/layouts/bally-star-trek-1979.json)
-   does, so it travels with the machine.
+   do, so it travels with the machine.
 6. **Save layout.** To share it, copy it into a clone of RPUMachines' `layouts/` and open a pull
    request.
 
@@ -196,7 +199,8 @@ format, so you can skip mapping lamps there. **Import** reads positions saved fr
 |---|---|
 | `play.py`, `web/` | The player and its page |
 | `build.sh`, `sim_core.cpp`, `mock/` | Building a game into a Mac program |
-| `run.sh`, `examples/`, `docs/SCENARIOS.md` | Scenarios |
+| `run.sh`, `docs/SCENARIOS.md` | Scenarios |
+| `examples/ExampleMachine/` | A scenario, a physics file and a layout for Dick's ExampleMachine |
 | `tools/vpx_import.py` | Lamps from a Visual Pinball table |
 | `build/<game>/` | The built game. Safe to delete. |
 | `~/Documents/rpu-sim/layouts/` | Your layouts |

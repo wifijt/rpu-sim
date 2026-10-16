@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Play an RPU game in your browser: no Mega, no machine.
 
-    ./play.py path/to/MyGame [--image playfield.jpg] [--sounds folder] [--machine bally-star-trek-1979] [--port 8765]
+    ./play.py path/to/MyGame [--image playfield.jpg] [--sounds folder] [--machine bally-star-trek-1979] [--layout file.json] [--physics file.sim]
 
 Builds the game (build.sh), runs it in real time (sim --live), and serves a page at
 http://localhost:8765 with the backglass displays, the playfield, the lamps, and switches you click.
@@ -19,6 +19,7 @@ HERE = Path(__file__).resolve().parent
 ap = argparse.ArgumentParser()
 ap.add_argument("sketch")
 ap.add_argument("--machine", help="the machine's id in RPUMachines (e.g. bally-star-trek-1979)")
+ap.add_argument("--layout", help="a layout .json file to use (and save to) in place of the machine's")
 ap.add_argument("--physics", help="a .sim file of physics lines (which switches each coil opens or closes); used in place of the layout's")
 ap.add_argument("--image", help="a picture of the playfield (e.g. extracted from a VPX table) to use as the background; line it up once with Align image")
 ap.add_argument("--sounds", help="the game's WAV Trigger folder (files named by track number: 0201_x.wav, 201.wav); your browser plays them")
@@ -26,6 +27,8 @@ ap.add_argument("--watch", help="game variables to show live, e.g. GameMode,Bonu
 ap.add_argument("--port", type=int, default=8765)
 ap.add_argument("--no-browser", action="store_true")
 a = ap.parse_args()
+if a.layout and not Path(a.layout).exists():
+    sys.exit(f"no layout file {a.layout}")
 sketch = Path(a.sketch).resolve()
 lib = Path(os.environ.get("MACHINES_LIB") or Path.home() / "Documents/Arduino/libraries/RPUMachines")
 
@@ -60,13 +63,13 @@ binary = HERE / "build" / sketch.name / "sim"
 # Layouts you're working on live outside every repo; they load before RPUMachines' copy
 local_layouts = Path(os.environ.get("RPU_SIM_LAYOUTS") or Path.home() / "Documents/rpu-sim/layouts")
 layout, layout_path = {}, None
-for cand in [local_layouts / f"{mid}.json", lib / "layouts" / f"{mid}.json"]:
+for cand in [Path(a.layout)] if a.layout else [local_layouts / f"{mid}.json", lib / "layouts" / f"{mid}.json"]:
     if cand.exists():
         layout, layout_path = json.loads(cand.read_text()), cand
         break
 # where a saved layout goes: straight into RPUMachines if that's a git clone (ready for a pull request),
 # else your local layouts folder (copy it into RPUMachines to contribute it)
-save_path = (lib / "layouts" / f"{mid}.json") if (lib / ".git").exists() else (local_layouts / f"{mid}.json")
+save_path = Path(a.layout).resolve() if a.layout else (lib / "layouts" / f"{mid}.json") if (lib / ".git").exists() else (local_layouts / f"{mid}.json")
 if layout_path:
     print(f"layout: {layout_path}")
 

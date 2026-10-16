@@ -1,0 +1,353 @@
+{
+ "machine": "ExampleMachine (Dick Hamill's generic RPU example)",
+ "header": "ExampleMachineMEGA.h",
+ "aspect": 2,
+ "source": "Made up: ExampleMachine isn't a real machine. Positions follow its switch, coil and lamp names; physics from its coils.",
+ "items": [
+  {
+   "kind": "bumper",
+   "x": 0.5,
+   "y": 0.2,
+   "r": 0.06
+  },
+  {
+   "kind": "saucer",
+   "x": 0.5,
+   "y": 0.34,
+   "r": 0.032
+  },
+  {
+   "kind": "sling",
+   "x": 0.25,
+   "y": 0.74,
+   "w": 0.07,
+   "h": 0.19,
+   "angle": -28
+  },
+  {
+   "kind": "sling",
+   "x": 0.75,
+   "y": 0.74,
+   "w": 0.07,
+   "h": 0.19,
+   "angle": 28
+  },
+  {
+   "kind": "flipper",
+   "x": 0.36,
+   "y": 0.86,
+   "w": 0.146,
+   "h": 0.032,
+   "angle": 25
+  },
+  {
+   "kind": "flipper",
+   "x": 0.64,
+   "y": 0.86,
+   "w": 0.146,
+   "h": 0.032,
+   "angle": -25
+  },
+  {
+   "kind": "switch",
+   "n": 31,
+   "x": 0.5,
+   "y": 0.2,
+   "shape": "bumper"
+  },
+  {
+   "kind": "switch",
+   "n": 32,
+   "x": 0.5,
+   "y": 0.34,
+   "shape": "saucer"
+  },
+  {
+   "kind": "switch",
+   "n": 0,
+   "x": 0.16,
+   "y": 0.33,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 1,
+   "x": 0.84,
+   "y": 0.33,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 24,
+   "x": 0.13,
+   "y": 0.45,
+   "shape": "drop"
+  },
+  {
+   "kind": "switch",
+   "n": 25,
+   "x": 0.13,
+   "y": 0.49,
+   "shape": "drop"
+  },
+  {
+   "kind": "switch",
+   "n": 26,
+   "x": 0.13,
+   "y": 0.53,
+   "shape": "drop"
+  },
+  {
+   "kind": "switch",
+   "n": 16,
+   "x": 0.87,
+   "y": 0.45,
+   "shape": "drop"
+  },
+  {
+   "kind": "switch",
+   "n": 17,
+   "x": 0.87,
+   "y": 0.49,
+   "shape": "drop"
+  },
+  {
+   "kind": "switch",
+   "n": 18,
+   "x": 0.87,
+   "y": 0.53,
+   "shape": "drop"
+  },
+  {
+   "kind": "switch",
+   "n": 19,
+   "x": 0.25,
+   "y": 0.74,
+   "shape": "sling"
+  },
+  {
+   "kind": "switch",
+   "n": 20,
+   "x": 0.75,
+   "y": 0.74,
+   "shape": "sling"
+  },
+  {
+   "kind": "switch",
+   "n": 34,
+   "x": 0.06,
+   "y": 0.77,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 35,
+   "x": 0.14,
+   "y": 0.79,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 36,
+   "x": 0.86,
+   "y": 0.79,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 37,
+   "x": 0.94,
+   "y": 0.77,
+   "shape": "lane"
+  },
+  {
+   "kind": "switch",
+   "n": 7,
+   "x": 0.5,
+   "y": 0.955,
+   "shape": "hole"
+  },
+  {
+   "kind": "coil",
+   "n": 6,
+   "x": 0.56,
+   "y": 0.17,
+   "label": "Pop bumper"
+  },
+  {
+   "kind": "coil",
+   "n": 7,
+   "x": 0.56,
+   "y": 0.37,
+   "label": "Saucer"
+  },
+  {
+   "kind": "coil",
+   "n": 3,
+   "x": 0.06,
+   "y": 0.49,
+   "label": "Left drop reset"
+  },
+  {
+   "kind": "coil",
+   "n": 2,
+   "x": 0.94,
+   "y": 0.49,
+   "label": "Right drop reset"
+  },
+  {
+   "kind": "coil",
+   "n": 10,
+   "x": 0.21,
+   "y": 0.7,
+   "label": "Left sling"
+  },
+  {
+   "kind": "coil",
+   "n": 11,
+   "x": 0.79,
+   "y": 0.7,
+   "label": "Right sling"
+  },
+  {
+   "kind": "coil",
+   "n": 8,
+   "x": 0.42,
+   "y": 0.945,
+   "label": "Ball serve"
+  },
+  {
+   "kind": "lamp",
+   "n": 0,
+   "x": 0.44,
+   "y": 0.46
+  },
+  {
+   "kind": "lamp",
+   "n": 5,
+   "x": 0.56,
+   "y": 0.46
+  },
+  {
+   "kind": "lamp",
+   "n": 1,
+   "x": 0.44,
+   "y": 0.495
+  },
+  {
+   "kind": "lamp",
+   "n": 6,
+   "x": 0.56,
+   "y": 0.495
+  },
+  {
+   "kind": "lamp",
+   "n": 2,
+   "x": 0.44,
+   "y": 0.53
+  },
+  {
+   "kind": "lamp",
+   "n": 7,
+   "x": 0.56,
+   "y": 0.53
+  },
+  {
+   "kind": "lamp",
+   "n": 3,
+   "x": 0.44,
+   "y": 0.565
+  },
+  {
+   "kind": "lamp",
+   "n": 8,
+   "x": 0.56,
+   "y": 0.565
+  },
+  {
+   "kind": "lamp",
+   "n": 4,
+   "x": 0.44,
+   "y": 0.6
+  },
+  {
+   "kind": "lamp",
+   "n": 9,
+   "x": 0.56,
+   "y": 0.6
+  },
+  {
+   "kind": "lamp",
+   "n": 10,
+   "x": 0.5,
+   "y": 0.65
+  },
+  {
+   "kind": "lamp",
+   "n": 47,
+   "x": 0.06,
+   "y": 0.72
+  },
+  {
+   "kind": "lamp",
+   "n": 45,
+   "x": 0.14,
+   "y": 0.72
+  },
+  {
+   "kind": "lamp",
+   "n": 44,
+   "x": 0.86,
+   "y": 0.72
+  },
+  {
+   "kind": "lamp",
+   "n": 46,
+   "x": 0.94,
+   "y": 0.72
+  },
+  {
+   "kind": "lamp",
+   "n": 42,
+   "x": 0.5,
+   "y": 0.8
+  }
+ ],
+ "physics": [
+  {
+   "coil": 8,
+   "opens": [
+    7
+   ],
+   "note": "ball serve: the ball leaves the outhole"
+  },
+  {
+   "coil": 7,
+   "opens": [
+    32
+   ],
+   "note": "saucer kicks out"
+  },
+  {
+   "coil": 2,
+   "opens": [
+    16,
+    17,
+    18
+   ],
+   "note": "right drop bank stands up"
+  },
+  {
+   "coil": 3,
+   "opens": [
+    24,
+    25,
+    26
+   ],
+   "note": "left drop bank stands up"
+  }
+ ],
+ "ballStarts": [
+  7
+ ]
+}
