@@ -223,22 +223,31 @@ async function start() {
   let soundWanted = true;
   try { soundWanted = localStorage.getItem("rpusim.sound") !== "off"; } catch (e) {}
   const soundLabel = () => {
-    const on = actx && actx.state === "running";
+    const on = soundWanted && actx && actx.state === "running";
     $("#soundbtn").textContent = on ? "Sound: on" : soundWanted ? "Sound: click anywhere to start" : "Sound: off";
     $("#soundbtn").classList.toggle("on", !!on);
   };
   const setSound = async on => {
     soundWanted = on;
     try { localStorage.setItem("rpusim.sound", on ? "on" : "off"); } catch (e) {}
-    if (on) { soundOn(); if (actx.state !== "running") await actx.resume(); }
-    else if (actx) { for (const k of Object.keys(voices)) stopTrack(k); await actx.suspend(); }
+    if (on) {
+      soundOn();
+      master.gain.value = 1; coilBus.gain.value = +$("#coilvol").value;
+      soundLabel();
+      if (actx.state !== "running") await actx.resume();
+    } else if (actx) {
+      master.gain.value = 0; coilBus.gain.value = 0;            // silent at once, whatever suspend() does
+      for (const k of Object.keys(voices)) stopTrack(k);
+      soundLabel();
+      actx.suspend().catch(() => {});
+    }
     soundLabel();
   };
-  $("#soundbtn").onclick = () => setSound(!(actx && actx.state === "running"));
+  $("#soundbtn").onclick = () => setSound(!(soundWanted && actx && actx.state === "running"));
   const firstGesture = e => { if (e.target.closest && e.target.closest("#soundbtn")) return; if (soundWanted && !(actx && actx.state === "running")) setSound(true); };
   document.addEventListener("pointerdown", firstGesture); document.addEventListener("keydown", firstGesture);
   soundLabel();
-  $("#coilvol").oninput = () => { if (coilBus) coilBus.gain.value = +$("#coilvol").value; };
+  $("#coilvol").oninput = () => { if (coilBus && master && master.gain.value > 0) coilBus.gain.value = +$("#coilvol").value; };
   try { $("#coilsnd").checked = localStorage.getItem("rpusim.coils") !== "0"; $("#coilvol").value = localStorage.getItem("rpusim.coilvol") || "0.5"; } catch (e) {}
   $("#coilsnd").onchange = () => { try { localStorage.setItem("rpusim.coils", $("#coilsnd").checked ? "1" : "0"); } catch (e) {} };
   $("#coilvol").onchange = () => { try { localStorage.setItem("rpusim.coilvol", $("#coilvol").value); } catch (e) {} };
@@ -478,7 +487,7 @@ function coilVoice(n) {
   return "other";
 }
 function coilSound(n) {
-  if (!actx || !$("#coilsnd").checked) return;
+  if (!actx || !$("#coilsnd").checked || !coilBus || coilBus.gain.value === 0 || master.gain.value === 0) return;
   const [f0, f1, len, cut, clen, loud] = COIL_VOICES[coilVoice(n)], t = actx.currentTime;
   const o = actx.createOscillator(), og = actx.createGain();
   o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + len);
@@ -504,7 +513,7 @@ async function playTrack(t) {
   src.onended = () => { if (voices[t] === v) delete voices[t]; };
 }
 function audio(events) {
-  if (!actx || !setup.sounds || !setup.sounds.length) return;
+  if (!actx || !master || master.gain.value === 0 || !setup.sounds || !setup.sounds.length) return;
   for (const [what, t, a, b, c] of events) {
     if (what === "solo") { for (const k of Object.keys(voices)) stopTrack(k); playTrack(t); }
     else if (what === "play") playTrack(t);
@@ -525,7 +534,7 @@ function audio(events) {
 // looping track (music) the game is playing that we aren't, and stop what the game no longer plays
 const starting = new Set();
 function catchUp(playing) {
-  if (!actx || !setup.sounds || !setup.sounds.length) return;
+  if (!actx || !master || master.gain.value === 0 || !setup.sounds || !setup.sounds.length) return;
   const now = new Set(playing.map(p => p[0]));
   for (const [t, loop] of playing) {
     if (loop && !voices[t] && !starting.has(t)) {
