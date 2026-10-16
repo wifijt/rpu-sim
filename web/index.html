@@ -22,14 +22,17 @@
   /* split window: backglass and playfield stay put on the left; the lists scroll on the right */
   html, body { height: 100%; }
   body { display: flex; flex-direction: column; overflow: hidden; }
-  main { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(320px, 1fr); gap: 16px; padding: 16px; }
-  #left { display: flex; flex-direction: column; min-height: 0; }
+  main { flex: 1; min-height: 0; display: grid; grid-template-columns: var(--left, 50%) 10px minmax(280px, 1fr); gap: 6px; padding: 16px; }
+  #left { display: flex; flex-direction: column; min-height: 0; min-width: 280px; }
   #left .panel.pf { flex: 1; min-height: 0; display: flex; justify-content: center; }
-  #left .panel.pf svg { height: 100%; width: auto; max-width: 100%; }
+  #left .panel.pf svg { width: 100%; height: 100%; }
+  #divider { cursor: col-resize; border-radius: 4px; background: var(--line); opacity: .4; }
+  #divider:hover, #divider.drag { opacity: 1; background: var(--dim); }
+  #info span { font-variant-numeric: tabular-nums; }
   .side { overflow-y: auto; min-height: 0; padding-right: 4px; }
   @media (max-width: 860px) {
     body { overflow: auto; display: block; }
-    main { grid-template-columns: 1fr; }
+    main { grid-template-columns: 1fr; } #divider { display: none; }
     #left .panel.pf svg { height: auto; width: 100%; }
     .side { overflow: visible; }
   }
@@ -103,6 +106,7 @@
     <div id="info"></div>
     <div class="panel pf"><svg id="pf"></svg></div>
   </div>
+  <div id="divider" title="Drag to resize"></div>
   <div class="side">
     <div class="panel" id="editor" hidden>
       <h2>Edit layout</h2>
@@ -239,7 +243,8 @@ function drawPlayfield() {
   const bg = setup.background && L.manual;
   if (bg) {                                     // the manual's drawing, scaled so its playfield fills the view
     const [l, t, r, b] = L.manual.frame, iw = W / (r - l), ih = H / (b - t);
-    mk("image", { href: "/background.png", x: -l * iw, y: -t * ih, width: iw, height: ih, preserveAspectRatio: "none" });
+    const clip = mk("clipPath", { id: "pfclip" }); mk("rect", { x: 0, y: 0, width: W, height: H }, clip);   // only the playfield part of the page
+    mk("image", { href: "/background.png", x: -l * iw, y: -t * ih, width: iw, height: ih, preserveAspectRatio: "none", "clip-path": "url(#pfclip)" });
     svg.classList.add("drawn");
   } else {
     mk("path", { d: `M10 ${H - 10} L10 500 A490 490 0 0 1 990 500 L990 ${H - 10} Z`, class: "pf-outline" });
@@ -520,6 +525,24 @@ function showWatch(w) {
   el.innerHTML = html;
 }
 
+// ---- the divider between the playfield and the panels: drag to resize, remembered
+(() => {
+  const main = document.querySelector("main"), div = $("#divider");
+  try { const w = localStorage.getItem("rpusim.left"); if (w) main.style.setProperty("--left", w); } catch (e) {}
+  let dragging = false;
+  div.addEventListener("pointerdown", e => { dragging = true; div.classList.add("drag"); div.setPointerCapture(e.pointerId); });
+  div.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    const r = main.getBoundingClientRect(), pct = Math.min(80, Math.max(20, (e.clientX - r.left) / r.width * 100));
+    main.style.setProperty("--left", pct.toFixed(1) + "%");
+  });
+  div.addEventListener("pointerup", () => {
+    dragging = false; div.classList.remove("drag");
+    try { localStorage.setItem("rpusim.left", main.style.getPropertyValue("--left")); } catch (e) {}
+  });
+  div.addEventListener("dblclick", () => { main.style.setProperty("--left", "50%"); try { localStorage.setItem("rpusim.left", "50%"); } catch (e) {} });
+})();
+
 function frame(f) {
   if (f.error) { addLog(`ERROR ${f.error}`, "err"); return; }
   if (f.lamps === undefined) return;
@@ -527,7 +550,7 @@ function frame(f) {
   $("#bipd").textContent = f.bip >= 0 ? String(f.bip).padStart(2, " ") : "  ";
   $("#credd").textContent = f.credits >= 0 ? String(f.credits).padStart(2, " ") : "  ";
   const stName = stateName(f.state);
-  $("#info").innerHTML = `<span>Mode <b>${stName}</b></span><span>Player <b>${f.player}</b></span><span>Time <b>${(f.t / 1000).toFixed(1)} s</b></span>`;
+  $("#info").innerHTML = `<span>Mode <b>${stName}</b></span><span>Player <b>${f.player}</b></span><span>Time <b style="display:inline-block;min-width:7ch;text-align:right">${(f.t / 1000).toFixed(1)} s</b></span>`;
   $("#state").textContent = stName;
   if (f.watch) showWatch(f.watch);
   for (const [n, els] of Object.entries(lampEls)) { const c = f.lamps[n]; for (const el of els) { el.classList.toggle("on", c === "1"); el.classList.toggle("dim", c === "d"); } }
