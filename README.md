@@ -124,6 +124,11 @@ plays each track as the game starts, loops, fades and stops it, and the game hea
 when the real file would. Click **Sound** (or anywhere) once: browsers only play after a click.
 Music that was already looping when you turned sound on joins in.
 
+**Watch:** list any of the game's global variables (`--watch GameMode,BonusX`, or type them in the
+Watch panel) and their values update live; arrays show their first entries, and `GameMode` and the
+machine state show the game's own names (`GAME_MODE_…`, `MACHINE_STATE_…`). Changing the list
+rebuilds and restarts the game. The backglass also has the ball-in-play and credit display.
+
 **Reset game** restarts the game as if the machine were switched off and on (EEPROM starts fresh).
 
 **Dick Hamill's [Lamp Animator](https://pinballrefresh.com/animation-generator)** maps lamps the same

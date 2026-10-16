@@ -21,6 +21,7 @@ ap.add_argument("sketch")
 ap.add_argument("--machine", help="the machine's id in RPUMachines (e.g. bally-star-trek-1979), or a folder with layout.json")
 ap.add_argument("--manual", help="your copy of the machine's manual (PDF): its playfield drawing becomes the background")
 ap.add_argument("--sounds", help="the game's WAV Trigger folder (files named by track number: 0201_x.wav, 201.wav); your browser plays them")
+ap.add_argument("--watch", help="game variables to show live, e.g. GameMode,BonusX (remembered for next time)")
 ap.add_argument("--port", type=int, default=8765)
 ap.add_argument("--no-browser", action="store_true")
 a = ap.parse_args()
@@ -47,8 +48,16 @@ mid = machine_id()
 legacy = mid and Path(mid).is_dir()                     # a folder with layout.json (and machine.sim)
 mdir = Path(mid).resolve() if legacy else (HERE / "machines" / mid if mid else None)
 mid = mdir.name if legacy else mid
-if subprocess.call([str(HERE / "build.sh"), str(sketch)]) != 0:
+watch_file = HERE / "build" / sketch.name / "watch.txt"
+watch = a.watch if a.watch is not None else (watch_file.read_text().strip() if watch_file.exists() else "")
+
+def build():
+    env = dict(os.environ, SIM_WATCH=watch)
+    return subprocess.call([str(HERE / "build.sh"), str(sketch)], env=env) == 0
+
+if not build():
     sys.exit("build failed")
+watch_file.write_text(watch)
 binary = HERE / "build" / sketch.name / "sim"
 cmd = [str(binary), "--live"] + ([str(mdir / "machine.sim")] if mdir and (mdir / "machine.sim").exists() else [])
 if mdir and not (mdir / "machine.sim").exists():
@@ -139,7 +148,7 @@ class H(BaseHTTPRequestHandler):
                                        "background": background is not None, "machine": mid,
                                        "saveTo": str(save_path) if save_path else None,
                                        "crop": {"w": crop["w"], "h": crop["h"]} if crop else None,
-                                       "sounds": sorted(sounds)}).encode(), "application/json")
+                                       "sounds": sorted(sounds), "watch": watch}).encode(), "application/json")
         elif self.path.startswith("/sound/"):
             try:
                 f = sounds.get(int(self.path.split("/")[2].split(".")[0]))
@@ -181,6 +190,21 @@ class H(BaseHTTPRequestHandler):
             save_path.parent.mkdir(parents=True, exist_ok=True)
             save_path.write_text(json.dumps(new, indent=1) + "\n")
             layout.clear(); layout.update(new)
+            return self.send(204, b"", "text/plain")
+        if self.path == "/watch":
+            global watch
+            import re
+            wanted = ",".join(w for w in re.split(r"[\s,]+", self.rfile.read(int(self.headers.get("Content-Length", 0))).decode()) if w)
+            if wanted and not re.fullmatch(r"[A-Za-z_]\w*(,[A-Za-z_]\w*)*", wanted):
+                return self.send(400, b"variable names only, separated by commas", "text/plain")
+            old, watch = watch, wanted
+            if not build():
+                watch = old
+                build()
+                return self.send(400, b"didn't compile: is every name one of the game's global variables?", "text/plain")
+            watch_file.write_text(watch)
+            with lock:
+                reset()
             return self.send(204, b"", "text/plain")
         if self.path == "/reset":
             with lock:

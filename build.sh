@@ -71,10 +71,36 @@ for path in sys.argv[1:]:
     for m in re.finditer(r'^\s*#define\s+((?:SW|SOL|LAMP)_\w+)\s+(\d+|0x[0-9A-Fa-f]+)\b', text, re.M):
         if m.group(1) not in seen and 'ANIMATION' not in m.group(1):
             seen.add(m.group(1)); print('  {"%s", %s},' % (m.group(1), m.group(2)))
+    for m in re.finditer(r'^\s*#define\s+((?:MACHINE_STATE|GAME_MODE)_\w+)\s+\(?(-?\d+)\)?\s*(?://.*)?$', text, re.M):
+        if m.group(1) not in seen:
+            seen.add(m.group(1)); print('  {"%s", %s},' % (m.group(1), m.group(2)))
     for m in re.finditer(r'^\s*((?:ACH|STAT|SET|AUD|ACT)_\w+)\s*=\s*(\d+)\s*,', text, re.M):
         if m.group(1) not in seen:
             seen.add(m.group(1)); print('  {"%s", %s},' % (m.group(1), m.group(2)))
 PY
+
+# 2b. watched variables (SIM_WATCH="GameMode,BonusX"): appended to the sketch itself, so they're in scope
+# with their own types; sim --live sends their values with every frame
+if [ -n "${SIM_WATCH:-}" ]; then
+  {
+    echo '#include <string>'
+    echo '#include <type_traits>'
+    echo 'template <class T> static std::string SimFmt(const T &v) {'
+    echo '  if constexpr (std::is_array_v<T>) { std::string s = "["; for (size_t i = 0; i < std::extent_v<T> && i < 8; i++) { if (i) s += ","; s += SimFmt(v[i]); } return s + (std::extent_v<T> > 8 ? ",…]" : "]"); }'
+    echo '  else if constexpr (std::is_enum_v<T>) return std::to_string((long long)v);'
+    echo '  else if constexpr (std::is_arithmetic_v<T>) return std::to_string(v);'
+    echo '  else return "?";'
+    echo '}'
+    echo 'void SimWatchValues(std::string &o) {'
+    IFS=',' read -ra WATCH <<< "$SIM_WATCH"
+    for w in "${WATCH[@]}"; do
+      w="$(echo "$w" | tr -d '[:space:]')"
+      [[ "$w" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || { echo "SIM_WATCH: '$w' isn't a variable name" >&2; exit 1; }
+      echo "  o += \"\\\"$w\\\":\\\"\" + SimFmt($w) + \"\\\",\";"
+    done
+    echo '}'
+  } >> "$OUT/sketch.cpp"
+fi
 
 # 3. compile: the mock Arduino headers first, then the sketch folder
 # (the library's PinNodeCtrl.cpp is the real one; its RPULink is replaced by sim_core.cpp)

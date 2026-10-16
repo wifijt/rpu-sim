@@ -27,6 +27,10 @@
   .disp { font: 600 26px/1 "SF Mono", Menlo, monospace; color: var(--seg); background: #0b0806; border-radius: 6px; padding: 8px 10px; text-align: right; letter-spacing: .12em; text-shadow: 0 0 8px rgba(255,122,42,.6); white-space: pre; }
   .disp small { display: block; font: 11px system-ui; color: var(--dim); text-align: left; letter-spacing: 0; text-shadow: none; margin-bottom: 4px; }
   .disp.up { outline: 1px solid var(--seg); }
+  .disp.cbip { grid-column: 1 / -1; display: flex; justify-content: center; gap: 48px; }
+  .disp.cbip > div { text-align: center; } .disp.cbip small { text-align: center; }
+  #watch { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font: 13px "SF Mono", Menlo, monospace; }
+  #watch b { color: var(--dim); font-weight: 400; } #watch .chg { color: var(--lamp-on); }
   #info { display: flex; gap: 16px; color: var(--dim); font-size: 13px; margin-bottom: 8px; }
   #info b { color: var(--text); }
   svg { width: 100%; height: auto; display: block; }
@@ -112,6 +116,12 @@
       </div>
       <textarea id="animText" rows="4" style="width:100%;margin-top:8px;background:#0b0d10;color:var(--text);border:1px solid var(--line);border-radius:6px;font:12px Menlo,monospace" placeholder="{x,y} list from the Lamp Animator, one per lamp number"></textarea>
     </div>
+    <div class="panel"><h2>Watch</h2>
+      <div id="watch" style="margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px"><input id="watchlist" style="flex:1;background:#0b0d10;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font:13px Menlo,monospace" placeholder="game variables, e.g. GameMode, BonusX, CurrentScores">
+        <button id="watchapply" title="Rebuild with these variables, then restart the game">Watch</button></div>
+      <p id="watchmsg" style="margin:6px 0 0;color:var(--dim);font-size:12px">Any of the game's global variables. Changing the list rebuilds and restarts the game (about 30 s).</p>
+    </div>
     <div class="panel"><h2>Lamps</h2><div id="lamps"></div></div>
     <div class="panel"><h2>Switches <span style="font-weight:400;text-transform:none">(click: press · shift-click: hold or release)</span></h2><div id="switches"></div></div>
     <div class="panel"><h2>Log</h2><div id="log"></div></div>
@@ -144,6 +154,7 @@ async function start() {
   document.title = setup.game + " · rpu-sim";
   // backglass
   for (let d = 0; d < 4; d++) $("#backglass").insertAdjacentHTML("beforeend", `<div class="disp" id="d${d}"><small>Player ${d + 1}</small><span></span></div>`);
+  $("#backglass").insertAdjacentHTML("beforeend", `<div class="disp cbip"><div><small>Ball in play</small><span id="bipd"></span></div><div><small>Credits</small><span id="credd"></span></div></div>`);
   // cabinet buttons
   // cabinet buttons: from the layout if it lists them, else from the game's own switch names
   const N = setup.names.names, has = k => k in N;
@@ -181,6 +192,14 @@ async function start() {
     $("#soundbtn").onclick = soundOn;
     document.addEventListener("pointerdown", soundOn, { once: true }); document.addEventListener("keydown", soundOn, { once: true });
   }
+  $("#watchlist").value = setup.watch || "";
+  $("#watchapply").onclick = async () => {
+    $("#watchmsg").textContent = "rebuilding…"; $("#watchapply").disabled = true;
+    const r = await fetch("/watch", { method: "POST", body: $("#watchlist").value });
+    $("#watchapply").disabled = false;
+    $("#watchmsg").textContent = r.ok ? "watching; the game restarted" : await r.text();
+    if (r.ok) { $("#watch").innerHTML = ""; for (const k in lastWatch) delete lastWatch[k]; }
+  };
   $("#resetbtn").onclick = async () => {
     for (const k of Object.keys(voices)) stopTrack(k);
     $("#state").textContent = "restarting…"; $("#log").innerHTML = "";
@@ -430,12 +449,35 @@ function catchUp(playing) {
   for (const k of Object.keys(voices)) if (!now.has(+k) && !starting.has(+k)) stopTrack(k);
 }
 
+// the game's own names for its machine states (and game modes, for a watched GameMode)
+function namesWith(prefix) { const m = {}; for (const [k, v] of Object.entries(setup.names.names)) if (k.startsWith(prefix) && !(v in m)) m[v] = k; return m; }
+function stateName(st) {
+  const n = namesWith("MACHINE_STATE_")[st];
+  return n ? n.replace("MACHINE_STATE_", "").replace(/_/g, " ").toLowerCase().replace(/^./, c => c.toUpperCase()) + ` (${st})` : `Machine state ${st}`;
+}
+const lastWatch = {};
+function showWatch(w) {
+  const modes = namesWith("GAME_MODE_"), el = $("#watch");
+  let html = "";
+  for (const [k, v] of Object.entries(w)) {
+    let shown = v;
+    if (/mode/i.test(k) && modes[+v] !== undefined) shown = `${v} · ${modes[+v].replace("GAME_MODE_", "")}`;
+    html += `<b>${k}</b><span class="${lastWatch[k] !== undefined && lastWatch[k] !== v ? "chg" : ""}">${shown}</span>`;
+    lastWatch[k] = v;
+  }
+  el.innerHTML = html;
+}
+
 function frame(f) {
   if (f.error) { addLog(`ERROR ${f.error}`, "err"); return; }
   if (f.lamps === undefined) return;
   for (let d = 0; d < 4; d++) { const el = $("#d" + d); el.querySelector("span").textContent = f.disp[d]; el.classList.toggle("up", f.state > 0 && f.player === d + 1); }
-  $("#info").innerHTML = `<span>Credits <b>${f.credits >= 0 ? f.credits : "–"}</b></span><span>Ball <b>${f.bip >= 0 ? f.bip : "–"}</b></span><span>Time <b>${(f.t / 1000).toFixed(1)} s</b></span>`;
-  $("#state").textContent = f.state === 0 ? "Attract" : f.state > 0 ? `Game · player ${f.player} · ball ${f.ball}` : `Machine state ${f.state}`;
+  $("#bipd").textContent = f.bip >= 0 ? String(f.bip).padStart(2, " ") : "  ";
+  $("#credd").textContent = f.credits >= 0 ? String(f.credits).padStart(2, " ") : "  ";
+  const stName = stateName(f.state);
+  $("#info").innerHTML = `<span>Mode <b>${stName}</b></span><span>Player <b>${f.player}</b></span><span>Time <b>${(f.t / 1000).toFixed(1)} s</b></span>`;
+  $("#state").textContent = stName;
+  if (f.watch) showWatch(f.watch);
   for (const [n, els] of Object.entries(lampEls)) { const c = f.lamps[n]; for (const el of els) { el.classList.toggle("on", c === "1"); el.classList.toggle("dim", c === "d"); } }
   const closed = new Set(f.sw);
   for (const [n, els] of Object.entries(swEls)) for (const el of els) el.classList.toggle("closed", closed.has(+n));

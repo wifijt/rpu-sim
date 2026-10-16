@@ -926,6 +926,7 @@ static void RunFile(const std::string &path) {
 
 
 // ------------------------------------------------------------------ live mode
+void SimWatchValues(std::string &o) __attribute__((weak));   // build.sh writes it when SIM_WATCH names variables
 // sim --live [setup.sim]: run in real time for a front end (play.py). Commands arrive on stdin,
 // one per line: "close SW", "open SW", "press SW" (closed for 80 ms), or any scenario command.
 // Every 33 ms a JSON frame goes to stdout: lamps, displays, closed switches, coils fired, sounds,
@@ -961,6 +962,12 @@ static void LiveFrame() {
   std::string o = "{\"t\":" + std::to_string(SimNow) + ",\"state\":" + std::to_string((int)MachineState);
   o += ",\"ball\":" + std::to_string((int)CurrentBallInPlay) + ",\"player\":" + std::to_string((int)CurrentPlayer + 1);
   o += ",\"credits\":" + std::to_string(CreditsShown) + ",\"bip\":" + std::to_string(BallInPlayShown);
+  if (SimWatchValues) {
+    std::string w;
+    SimWatchValues(w);
+    if (!w.empty()) w.pop_back();
+    o += ",\"watch\":{" + w + "}";
+  }
   o += ",\"lamps\":\"";
   for (int l = 0; l < RPU_MAX_LAMPS; l++) {
     bool on = LampOn[l] && (!LampFlash[l] || (SimNow / (unsigned long)LampFlash[l]) % 2 == 0);
