@@ -80,7 +80,9 @@
   <button id="drain" title="Close the outhole switch">Drain <kbd>Space</kbd></button>
   <button id="resetbtn" title="Restart the game, as if the machine were switched off and on">Reset game</button>
   <button id="editbtn" title="Move switches, coils and lamps; place lamps">Edit layout</button>
-  <button id="soundbtn" hidden title="Browsers only play sound after a click">Sound: off</button>
+  <button id="soundbtn" title="Browsers only play sound after a click">Sound: click to turn on</button>
+  <label title="A synthesized thump when a coil fires (not the game's sounds)" style="color:var(--dim)"><input type="checkbox" id="coilsnd" checked> Coil sounds</label>
+  <input type="range" id="coilvol" min="0" max="1" step="0.05" value="0.5" title="Coil sound volume" style="width:80px">
   <span class="state" id="state"></span>
 </header>
 <main>
@@ -187,11 +189,13 @@ async function start() {
     b.onclick = e => { if (!editMode) swClick(n, e); }; tip(b, nameFor("SW_", n)); $("#switches").append(b); (swEls[n] ||= []).push(b);
     listDraggable(b, "switch", n);
   }
-  if (setup.sounds && setup.sounds.length) {
-    $("#soundbtn").hidden = false; $("#soundbtn").textContent = `Sound: click to turn on (${setup.sounds.length} tracks)`;
-    $("#soundbtn").onclick = soundOn;
-    document.addEventListener("pointerdown", soundOn, { once: true }); document.addEventListener("keydown", soundOn, { once: true });
-  }
+  $("#soundbtn").textContent = setup.sounds && setup.sounds.length ? `Sound: click to turn on (${setup.sounds.length} tracks)` : "Sound: click to turn on (coils only)";
+  $("#soundbtn").onclick = soundOn;
+  document.addEventListener("pointerdown", soundOn, { once: true }); document.addEventListener("keydown", soundOn, { once: true });
+  $("#coilvol").oninput = () => { if (coilBus) coilBus.gain.value = +$("#coilvol").value; };
+  try { $("#coilsnd").checked = localStorage.getItem("rpusim.coils") !== "0"; $("#coilvol").value = localStorage.getItem("rpusim.coilvol") || "0.5"; } catch (e) {}
+  $("#coilsnd").onchange = () => { try { localStorage.setItem("rpusim.coils", $("#coilsnd").checked ? "1" : "0"); } catch (e) {} };
+  $("#coilvol").onchange = () => { try { localStorage.setItem("rpusim.coilvol", $("#coilvol").value); } catch (e) {} };
   $("#watchlist").value = setup.watch || "";
   $("#watchapply").onclick = async () => {
     $("#watchmsg").textContent = "rebuilding…"; $("#watchapply").disabled = true;
@@ -399,9 +403,45 @@ $("#pf").addEventListener("drop", e => {
 let actx = null, master = null;
 const buffers = {}, voices = {};                     // track -> AudioBuffer (or a promise), track -> {src, gain}
 function soundOn() {
-  if (actx || !setup.sounds || !setup.sounds.length) return;
+  if (actx) return;
   actx = new AudioContext(); master = actx.createGain(); master.connect(actx.destination);
+  coilBus = actx.createGain(); coilBus.gain.value = +$("#coilvol").value; coilBus.connect(actx.destination);
   $("#soundbtn").textContent = "Sound: on";
+}
+
+// ---- coil sounds: synthesized, not the game's: a thump (low sine sweep) plus a click (filtered noise)
+let coilBus = null, noiseBuf = null;
+const COIL_VOICES = {                 // [thump Hz from, to, length s, click filter Hz, click length s, loudness]
+  bumper:   [180, 55, 0.12, 1800, 0.030, 1.0],
+  sling:    [260, 90, 0.07, 3500, 0.025, 0.8],
+  knocker:  [120, 40, 0.22, 900, 0.060, 1.4],
+  kicker:   [150, 50, 0.16, 1200, 0.045, 1.1],
+  reset:    [300, 120, 0.10, 2500, 0.080, 0.9],
+  flipper:  [220, 70, 0.08, 2200, 0.020, 0.7],
+  other:    [200, 70, 0.10, 2000, 0.030, 0.8],
+};
+function coilVoice(n) {
+  const name = (nameFor("SOL_", n) + " " + label("solenoids", n, "SOL_")).toLowerCase();
+  if (/bumper|thumper|pop/.test(name)) return "bumper";
+  if (/sling|(left|right) kicker/.test(name)) return "sling";
+  if (/knock/.test(name)) return "knocker";
+  if (/outhole|serve|trough|release|saucer|eject|ramp thrower|hole/.test(name)) return "kicker";
+  if (/reset|drop/.test(name)) return "reset";
+  if (/flip/.test(name)) return "flipper";
+  return "other";
+}
+function coilSound(n) {
+  if (!actx || !$("#coilsnd").checked) return;
+  const [f0, f1, len, cut, clen, loud] = COIL_VOICES[coilVoice(n)], t = actx.currentTime;
+  const o = actx.createOscillator(), og = actx.createGain();
+  o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + len);
+  og.gain.setValueAtTime(0.9 * loud, t); og.gain.exponentialRampToValueAtTime(0.001, t + len);
+  o.connect(og); og.connect(coilBus); o.start(t); o.stop(t + len + 0.02);
+  if (!noiseBuf) { noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.2, actx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  const nz = actx.createBufferSource(), bp = actx.createBiquadFilter(), ng = actx.createGain();
+  nz.buffer = noiseBuf; bp.type = "bandpass"; bp.frequency.value = cut; bp.Q.value = 0.8;
+  ng.gain.setValueAtTime(0.6 * loud, t); ng.gain.exponentialRampToValueAtTime(0.001, t + clen);
+  nz.connect(bp); bp.connect(ng); ng.connect(coilBus); nz.start(t); nz.stop(t + clen + 0.02);
 }
 async function buffer(t) {
   if (!buffers[t]) buffers[t] = fetch(`/sound/${t}.wav`).then(r => r.ok ? r.arrayBuffer() : null).then(b => b && actx.decodeAudioData(b)).catch(() => null);
@@ -417,7 +457,7 @@ async function playTrack(t) {
   src.onended = () => { if (voices[t] === v) delete voices[t]; };
 }
 function audio(events) {
-  if (!actx) return;
+  if (!actx || !setup.sounds || !setup.sounds.length) return;
   for (const [what, t, a, b, c] of events) {
     if (what === "solo") { for (const k of Object.keys(voices)) stopTrack(k); playTrack(t); }
     else if (what === "play") playTrack(t);
@@ -438,7 +478,7 @@ function audio(events) {
 // looping track (music) the game is playing that we aren't, and stop what the game no longer plays
 const starting = new Set();
 function catchUp(playing) {
-  if (!actx) return;
+  if (!actx || !setup.sounds || !setup.sounds.length) return;
   const now = new Set(playing.map(p => p[0]));
   for (const [t, loop] of playing) {
     if (loop && !voices[t] && !starting.has(t)) {
@@ -481,7 +521,7 @@ function frame(f) {
   for (const [n, els] of Object.entries(lampEls)) { const c = f.lamps[n]; for (const el of els) { el.classList.toggle("on", c === "1"); el.classList.toggle("dim", c === "d"); } }
   const closed = new Set(f.sw);
   for (const [n, els] of Object.entries(swEls)) for (const el of els) el.classList.toggle("closed", closed.has(+n));
-  for (const n of f.fired) for (const el of (coilEls[n] || [])) { el.classList.add("hit"); setTimeout(() => el.classList.remove("hit"), 150); }
+  for (const n of f.fired) { coilSound(n); for (const el of (coilEls[n] || [])) { el.classList.add("hit"); setTimeout(() => el.classList.remove("hit"), 150); } }
   if (f.audio && f.audio.length) audio(f.audio);
   if (f.playing) catchUp(f.playing);
   for (const l of f.log) addLog(l, / SOL /.test(l) ? "sol" : / SW /.test(l) ? "sw" : / PN /.test(l) ? "pn" : "");

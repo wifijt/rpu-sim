@@ -124,6 +124,11 @@ plays each track as the game starts, loops, fades and stops it, and the game hea
 when the real file would. Click **Sound** (or anywhere) once: browsers only play after a click.
 Music that was already looping when you turned sound on joins in.
 
+**Coil sounds:** every coil that fires makes a synthesized mechanical sound (not one of the game's
+tracks), chosen by the coil's name: a pop for bumpers, a snap for slingshots, a knock for the
+knocker, a kick for the outhole, saucer and eject holes, a clack for drop target resets. Turn them
+on or off and set their volume at the top of the page; they work without `--sounds`.
+
 **Watch:** list any of the game's global variables (`--watch GameMode,BonusX`, or type them in the
 Watch panel) and their values update live; arrays show their first entries, and `GameMode` and the
 machine state show the game's own names (`GAME_MODE_…`, `MACHINE_STATE_…`). Changing the list
