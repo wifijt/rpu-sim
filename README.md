@@ -26,7 +26,13 @@ machine header need RPUMachines (Library Manager; or set `MACHINES_LIB`).
 
 ## Getting started (Mac)
 
-1. Install the Xcode command-line tools (for `clang++`): `xcode-select --install`.
+rpu-sim runs on a Mac. The game is compiled into a Mac program (`clang++`), the page is just its
+display, and `--manual` uses macOS's PDF renderer. A port to Linux or Windows (or WSL), or to
+WebAssembly so it runs entirely in a browser, would be welcome: the game code and `sim_core.cpp` are
+plain C++, and `play.py` is Python. Most of a port is `build.sh` and the page renderer.
+
+1. Install Apple's Command Line Tools (for `clang++` and `swift`; not the full Xcode app):
+   `xcode-select --install`. `xcode-select -p` shows whether you already have them.
 2. Install the [Arduino IDE](https://www.arduino.cc/en/software). Python 3 comes with macOS.
 3. Get rpu-sim and an RPU game, then run a scenario:
 
