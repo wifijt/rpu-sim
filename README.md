@@ -40,11 +40,12 @@ rpu-sim runs on a Mac.
 
 ## Run scenarios (headless)
 
-Try it with Dick's ExampleMachine (the folder must have the sketch's name):
+Try it with Dick's ExampleMachine. From any folder:
 
 ```bash
+git clone https://github.com/wifijt/rpu-sim
+git clone https://github.com/RetroPinUpgrade/ExampleMachine ExampleMachineMEGA   # folder = the sketch's name
 cd rpu-sim
-git clone https://github.com/RetroPinUpgrade/ExampleMachine ../ExampleMachineMEGA
 ./run.sh ../ExampleMachineMEGA examples/ExampleMachine/01-start-a-game.sim
 # PASS examples/ExampleMachine/01-start-a-game.sim  (5 checks, 74110 ms simulated, ...)
 ```
