@@ -28,7 +28,11 @@
   #left .panel.pf { flex: none; height: calc(100vh - var(--header-h, 60px) - 32px); position: relative; padding: 0; display: flex; flex-direction: column; }
   #pfscroll { flex: 1; min-height: 0; overflow: auto; padding: 8px; }
   #pfscroll svg { margin: 0 auto; }
-  #zoombar { display: flex; gap: 4px; align-items: center; padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--dim); }
+  #zoombar { display: flex; gap: 4px; align-items: center; padding: 0 8px; height: 38px; flex: none; flex-wrap: nowrap; overflow: hidden;
+             border-bottom: 1px solid var(--line); font-size: 12px; color: var(--dim); }
+  #zoombar > * { flex: none; }
+  #miniscore { flex: 1 1 0 !important; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* never changes the bar's size */
+  #miniscore b { display: inline-block; min-width: 7ch; text-align: right; }
   #zoombar button { padding: 2px 9px; font-size: 13px; }
   #zoombar .on { border-color: var(--dim); color: var(--text); }
   #soundbtn.on { border-color: var(--sw-closed); color: var(--sw-closed); }
@@ -116,7 +120,7 @@
     <div id="backglass"></div>
     <div id="info"></div>
     <div class="panel pf">
-      <div id="zoombar"><span id="miniscore" style="font-variant-numeric:tabular-nums;color:var(--text)">Playfield</span><span style="flex:1"></span>
+      <div id="zoombar"><span id="miniscore" style="font-variant-numeric:tabular-nums;color:var(--text)">Playfield</span>
         <select id="bgsel" title="Background" hidden></select>
         <button id="alignbtn" title="Line the picture up with the switches: drag its corners, or the picture itself" hidden>Align image</button>
         <button id="zfit" title="The whole playfield in view">Fit</button>
