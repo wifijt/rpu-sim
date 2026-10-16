@@ -31,6 +31,7 @@
   #zoombar { display: flex; gap: 4px; align-items: center; padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--dim); }
   #zoombar button { padding: 2px 9px; font-size: 13px; }
   #zoombar .on { border-color: var(--dim); color: var(--text); }
+  #soundbtn.on { border-color: var(--sw-closed); color: var(--sw-closed); }
   #divider { cursor: col-resize; border-radius: 4px; background: var(--line); opacity: .4; }
   #divider:hover, #divider.drag { opacity: 1; background: var(--dim); }
   #info span { font-variant-numeric: tabular-nums; }
@@ -217,9 +218,26 @@ async function start() {
     b.onclick = e => { if (!editMode) swClick(n, e); }; tip(b, nameFor("SW_", n)); $("#switches").append(b); (swEls[n] ||= []).push(b);
     listDraggable(b, "switch", n);
   }
-  $("#soundbtn").textContent = setup.sounds && setup.sounds.length ? `Sound: click to turn on (${setup.sounds.length} tracks)` : "Sound: click to turn on (coils only)";
-  $("#soundbtn").onclick = soundOn;
-  document.addEventListener("pointerdown", soundOn, { once: true }); document.addEventListener("keydown", soundOn, { once: true });
+  // Sound: on/off toggle. Browsers only allow sound after a click, so "on" (the default) starts on
+  // the first click or key anywhere; "off" is remembered and stays off until the button turns it on.
+  let soundWanted = true;
+  try { soundWanted = localStorage.getItem("rpusim.sound") !== "off"; } catch (e) {}
+  const soundLabel = () => {
+    const on = actx && actx.state === "running";
+    $("#soundbtn").textContent = on ? "Sound: on" : soundWanted ? "Sound: click anywhere to start" : "Sound: off";
+    $("#soundbtn").classList.toggle("on", !!on);
+  };
+  const setSound = async on => {
+    soundWanted = on;
+    try { localStorage.setItem("rpusim.sound", on ? "on" : "off"); } catch (e) {}
+    if (on) { soundOn(); if (actx.state !== "running") await actx.resume(); }
+    else if (actx) { for (const k of Object.keys(voices)) stopTrack(k); await actx.suspend(); }
+    soundLabel();
+  };
+  $("#soundbtn").onclick = () => setSound(!(actx && actx.state === "running"));
+  const firstGesture = e => { if (e.target.closest && e.target.closest("#soundbtn")) return; if (soundWanted && !(actx && actx.state === "running")) setSound(true); };
+  document.addEventListener("pointerdown", firstGesture); document.addEventListener("keydown", firstGesture);
+  soundLabel();
   $("#coilvol").oninput = () => { if (coilBus) coilBus.gain.value = +$("#coilvol").value; };
   try { $("#coilsnd").checked = localStorage.getItem("rpusim.coils") !== "0"; $("#coilvol").value = localStorage.getItem("rpusim.coilvol") || "0.5"; } catch (e) {}
   $("#coilsnd").onchange = () => { try { localStorage.setItem("rpusim.coils", $("#coilsnd").checked ? "1" : "0"); } catch (e) {} };
@@ -436,7 +454,6 @@ function soundOn() {
   if (actx) return;
   actx = new AudioContext(); master = actx.createGain(); master.connect(actx.destination);
   coilBus = actx.createGain(); coilBus.gain.value = +$("#coilvol").value; coilBus.connect(actx.destination);
-  $("#soundbtn").textContent = "Sound: on";
 }
 
 // ---- coil sounds: synthesized, not the game's: a thump (low sine sweep) plus a click (filtered noise)

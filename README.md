@@ -125,7 +125,8 @@ as a pull request), or into `machines/<machine>/layout.json` here.
 **Sound:** `--sounds "~/Documents/StarTrek2022 Sounds"` points at the game's WAV Trigger folder (what you
 copy to its SD card: files named by track number, `0201_hyperspace.wav` or `201.wav`). Your browser
 plays each track as the game starts, loops, fades and stops it, and the game hears each track end
-when the real file would. Click **Sound** (or anywhere) once: browsers only play after a click.
+when the real file would. Sound starts on your first click (browsers only play after one); the **Sound** button turns it
+off and on, and is remembered.
 Music that was already looping when you turned sound on joins in.
 
 **Coil sounds:** every coil that fires makes a synthesized mechanical sound (not one of the game's
