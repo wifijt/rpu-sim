@@ -75,6 +75,7 @@
   <span id="cabinet"></span>
   <button id="drain" title="Close the outhole switch">Drain <kbd>Space</kbd></button>
   <button id="editbtn" title="Move switches, coils and lamps; place lamps">Edit layout</button>
+  <button id="soundbtn" hidden title="Browsers only play sound after a click">Sound: off</button>
   <span class="state" id="state"></span>
 </header>
 <main>
@@ -173,6 +174,11 @@ async function start() {
     const b = document.createElement("button"); b.className = "swbtn"; b.textContent = `${n} · ${label("switches", n, "SW_")}`;
     b.onclick = e => { if (!editMode) swClick(n, e); }; tip(b, nameFor("SW_", n)); $("#switches").append(b); (swEls[n] ||= []).push(b);
     listDraggable(b, "switch", n);
+  }
+  if (setup.sounds && setup.sounds.length) {
+    $("#soundbtn").hidden = false; $("#soundbtn").textContent = `Sound: click to turn on (${setup.sounds.length} tracks)`;
+    $("#soundbtn").onclick = soundOn;
+    document.addEventListener("pointerdown", soundOn, { once: true }); document.addEventListener("keydown", soundOn, { once: true });
   }
   const ev = new EventSource("/events");
   ev.onmessage = m => frame(JSON.parse(m.data));
@@ -364,6 +370,45 @@ $("#pf").addEventListener("drop", e => {
   touched(it); drawPlayfield(); fillPlaceList(); markPlaced();
 });
 
+// ---- sound: the game's WAV Trigger tracks, played as the game asks for them
+let actx = null, master = null;
+const buffers = {}, voices = {};                     // track -> AudioBuffer (or a promise), track -> {src, gain}
+function soundOn() {
+  if (actx || !setup.sounds || !setup.sounds.length) return;
+  actx = new AudioContext(); master = actx.createGain(); master.connect(actx.destination);
+  $("#soundbtn").textContent = "Sound: on";
+}
+async function buffer(t) {
+  if (!buffers[t]) buffers[t] = fetch(`/sound/${t}.wav`).then(r => r.ok ? r.arrayBuffer() : null).then(b => b && actx.decodeAudioData(b)).catch(() => null);
+  return buffers[t];
+}
+function stopTrack(t) { const v = voices[t]; if (v) { try { v.src.stop(); } catch (e) {} delete voices[t]; } }
+async function playTrack(t) {
+  stopTrack(t);
+  const buf = await buffer(t); if (!buf) return;
+  const src = actx.createBufferSource(), gain = actx.createGain();
+  src.buffer = buf; src.connect(gain); gain.connect(master); src.start();
+  const v = { src, gain }; voices[t] = v;
+  src.onended = () => { if (voices[t] === v) delete voices[t]; };
+}
+function audio(events) {
+  if (!actx) return;
+  for (const [what, t, a, b, c] of events) {
+    if (what === "solo") { for (const k of Object.keys(voices)) stopTrack(k); playTrack(t); }
+    else if (what === "play") playTrack(t);
+    else if (what === "stop") stopTrack(t);
+    else if (what === "stopall") for (const k of Object.keys(voices)) stopTrack(k);
+    else if (what === "loop") { const v = voices[t]; if (v) v.src.loop = !!a; else if (a) playTrack(t).then(() => voices[t] && (voices[t].src.loop = true)); }
+    else if (what === "gain") { const v = voices[t]; if (v) v.gain.gain.value = Math.pow(10, a / 20); }
+    else if (what === "fade") {
+      const v = voices[t]; if (!v) continue;
+      const now = actx.currentTime, end = now + b / 1000;
+      v.gain.gain.setValueAtTime(v.gain.gain.value, now); v.gain.gain.linearRampToValueAtTime(Math.pow(10, a / 20), end);
+      if (c) setTimeout(() => stopTrack(t), b);
+    }
+  }
+}
+
 function frame(f) {
   if (f.error) { addLog(`ERROR ${f.error}`, "err"); return; }
   if (f.lamps === undefined) return;
@@ -374,6 +419,7 @@ function frame(f) {
   const closed = new Set(f.sw);
   for (const [n, els] of Object.entries(swEls)) for (const el of els) el.classList.toggle("closed", closed.has(+n));
   for (const n of f.fired) for (const el of (coilEls[n] || [])) { el.classList.add("hit"); setTimeout(() => el.classList.remove("hit"), 150); }
+  if (f.audio && f.audio.length) audio(f.audio);
   for (const l of f.log) addLog(l, / SOL /.test(l) ? "sol" : / SW /.test(l) ? "sw" : / PN /.test(l) ? "pn" : "");
 }
 function addLog(text, cls) {

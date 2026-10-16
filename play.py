@@ -5,7 +5,7 @@
 
 Builds the game (build.sh), runs it in real time (sim --live), and serves a page at
 http://localhost:8765 with the backglass displays, the playfield, the lamps, and switches you click.
-Keys: 1 Start, 5 Coin, Space or Enter drain.
+Keys: 1 Start, 5 Coin, Space or Enter drain. --sounds plays the game's WAV files in the browser.
 
 The machine (its names and its layout) comes from RPUMachines: the library folder in MACHINES_LIB,
 or the one the Arduino IDE installed. Without --machine it's the machine header the game includes.
@@ -20,6 +20,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("sketch")
 ap.add_argument("--machine", help="the machine's id in RPUMachines (e.g. bally-star-trek-1979), or a folder with layout.json")
 ap.add_argument("--manual", help="your copy of the machine's manual (PDF): its playfield drawing becomes the background")
+ap.add_argument("--sounds", help="the game's WAV Trigger folder (files named by track number: 0201_x.wav, 201.wav); your browser plays them")
 ap.add_argument("--port", type=int, default=8765)
 ap.add_argument("--no-browser", action="store_true")
 a = ap.parse_args()
@@ -56,6 +57,22 @@ sim = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=
                        cwd=str(mdir if mdir and mdir.is_dir() else HERE))
 
 names = json.loads(sim.stdout.readline())        # the first line: SW_/SOL_/LAMP_/... names
+
+sounds = {}                                       # track number -> file, from the WAV Trigger folder
+if a.sounds:
+    import re, wave
+    for f in sorted(Path(a.sounds).expanduser().glob("*")):
+        m = re.match(r"(\d+)", f.name)
+        if m and f.suffix.lower() == ".wav":
+            t = int(m.group(1))
+            sounds.setdefault(t, f)
+            try:                                  # the game hears each track end when the real one would
+                with wave.open(str(f)) as w:
+                    sim.stdin.write(f"wavlen {t} {int(1000 * w.getnframes() / w.getframerate())}\n")
+            except (wave.Error, EOFError, OSError):
+                pass
+    sim.stdin.flush()
+    print(f"sounds: {len(sounds)} tracks from {a.sounds}")
 layout, layout_path = {}, None
 for cand in ([mdir / "layout.json"] if mdir else []) + ([lib / "layouts" / f"{mid}.json"] if mid and not legacy else []):
     if cand.exists():
@@ -107,7 +124,17 @@ class H(BaseHTTPRequestHandler):
             self.send(200, json.dumps({"names": names, "layout": layout, "labels": labels, "game": sketch.name,
                                        "background": background is not None, "machine": mid,
                                        "saveTo": str(save_path) if save_path else None,
-                                       "crop": {"w": crop["w"], "h": crop["h"]} if crop else None}).encode(), "application/json")
+                                       "crop": {"w": crop["w"], "h": crop["h"]} if crop else None,
+                                       "sounds": sorted(sounds)}).encode(), "application/json")
+        elif self.path.startswith("/sound/"):
+            try:
+                f = sounds.get(int(self.path.split("/")[2].split(".")[0]))
+            except ValueError:
+                f = None
+            if f:
+                self.send(200, f.read_bytes(), "audio/wav")
+            else:
+                self.send(404, b"no such track", "text/plain")
         elif self.path == "/playfield.png" and crop:
             self.send(200, crop["png"], "image/png")
         elif self.path == "/background.png" and background:

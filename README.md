@@ -93,7 +93,7 @@ Run it with `./run.sh path/to/MyGame MyGame/sim/01-start.sim`. When a check fail
 ## Play it in your browser
 
 ```bash
-./play.py ~/src/StarTrek2022 --manual ~/Manuals/Bally_1979_Star_Trek_Manual.pdf
+./play.py ~/src/StarTrek2022 --manual ~/Manuals/Bally_1979_Star_Trek_Manual.pdf --sounds ~/Sounds/StarTrek2022
 ```
 
 Builds the game, runs it in real time, and opens a page with the backglass displays, the
@@ -113,9 +113,15 @@ parts. Without it you get a plain drawing of the same positions. The drawing is 
 anywhere: RPUMachines keeps only the page number and the positions.
 
 **Edit layout** (top of the page): drag any switch, coil or lamp on the playfield; drag a lamp or
-switch from the lists onto its spot to place it (or pick one and click where it sits); one; click one to select it, then **Remove** (or Delete) takes it off and **+** / **−** resize it.
+switch from the lists onto its spot to place it (or pick one and click where it sits); click one to
+select it, then **Remove** (or Delete) takes it off and **+** / **−** resize it.
 **Save layout** writes it back into RPUMachines when `MACHINES_LIB` is a git clone of it (send it
 as a pull request), or into `machines/<machine>/layout.json` here.
+
+**Sound:** `--sounds "~/Documents/StarTrek2022 Sounds"` points at the game's WAV Trigger folder (what you
+copy to its SD card: files named by track number, `0201_hyperspace.wav` or `201.wav`). Your browser
+plays each track as the game starts, loops, fades and stops it, and the game hears each track end
+when the real file would. Click **Sound** (or anywhere) once: browsers only play after a click.
 
 **Dick Hamill's [Lamp Animator](https://pinballrefresh.com/animation-generator)** maps lamps the same
 way, to generate lamp animations. In the editor, **Export** saves the playfield image and the lamp

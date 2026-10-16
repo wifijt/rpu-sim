@@ -74,7 +74,8 @@ static std::string NameOf(const char *prefix, int value) {
 }
 
 // ------------------------------------------------------------------ log
-static std::vector<int> LiveFired, LiveSounds;   // live mode: coils fired and tracks started since the last frame
+static std::vector<int> LiveFired;              // live mode: coils fired since the last frame
+static std::vector<std::string> LiveAudio;     // live mode: WAV Trigger events since the last frame, as JSON arrays
 static bool LiveMode = false;
 static unsigned long SimNow = 0;
 static std::vector<std::string> SimLog;
@@ -146,7 +147,6 @@ static void WavStopTrack(int track) {
 }
 
 static void WavPlay(int track, bool solo) {
-  if (LiveMode) LiveSounds.push_back(track);
   if (solo) for (int v = 0; v < SIM_WAV_VOICES; v++) if (SimVoices[v].track) WavStopTrack(SimVoices[v].track);
   WavStopTrack(track);
   for (int v = 0; v < SIM_WAV_VOICES; v++) {
@@ -179,13 +179,13 @@ static void WavCommand(const std::vector<uint8_t> &m) {
     int code = m[4];
     int track = m[5] | (m[6] << 8);
     switch (code) {
-      case 0: Log("WAV play %d (solo)", track); WavPlay(track, true); break;
-      case 1: Log("WAV play %d", track); WavPlay(track, false); break;
-      case 4: Log("WAV stop %d", track); WavStopTrack(track); break;
-      case 5: Log("WAV loop %d on", track);
+      case 0: Log("WAV play %d (solo)", track); WavPlay(track, true); if (LiveMode) LiveAudio.push_back("[\"solo\"," + std::to_string(track) + "]"); break;
+      case 1: Log("WAV play %d", track); WavPlay(track, false); if (LiveMode) LiveAudio.push_back("[\"play\"," + std::to_string(track) + "]"); break;
+      case 4: Log("WAV stop %d", track); WavStopTrack(track); if (LiveMode) LiveAudio.push_back("[\"stop\"," + std::to_string(track) + "]"); break;
+      case 5: Log("WAV loop %d on", track); if (LiveMode) LiveAudio.push_back("[\"loop\"," + std::to_string(track) + ",1]");
         for (int v = 0; v < SIM_WAV_VOICES; v++) if (SimVoices[v].track == track) SimVoices[v].looping = true;
         break;
-      case 6: Log("WAV loop %d off", track);
+      case 6: Log("WAV loop %d off", track); if (LiveMode) LiveAudio.push_back("[\"loop\"," + std::to_string(track) + ",0]");
         for (int v = 0; v < SIM_WAV_VOICES; v++) if (SimVoices[v].track == track) { SimVoices[v].looping = false; SimVoices[v].endsAt = SimNow + 500; }
         break;
       default: break;
@@ -194,13 +194,16 @@ static void WavCommand(const std::vector<uint8_t> &m) {
     int track = m[4] | (m[5] << 8);
     int gain = (int16_t)(m[6] | (m[7] << 8));
     if (SimLogGains) Log("WAV gain %d %d dB", track, gain);
+    if (LiveMode) LiveAudio.push_back("[\"gain\"," + std::to_string(track) + "," + std::to_string(gain) + "]");
   } else if (cmd == 10 && m.size() >= 12) { // TRACK_FADE: track u16, gain i16, ms u16, stop u8
     int track = m[4] | (m[5] << 8);
     int gain = (int16_t)(m[6] | (m[7] << 8));
     int ms = m[8] | (m[9] << 8);
     if (SimLogGains) Log("WAV fade %d to %d dB in %d ms%s", track, gain, ms, m[10] ? " then stop" : "");
+    if (LiveMode) LiveAudio.push_back("[\"fade\"," + std::to_string(track) + "," + std::to_string(gain) + "," + std::to_string(ms) + "," + (m[10] ? "1" : "0") + "]");
   } else if (cmd == 4) {
     Log("WAV stop all");
+    if (LiveMode) LiveAudio.push_back("[\"stopall\"]");
     for (int v = 0; v < SIM_WAV_VOICES; v++) if (SimVoices[v].track) WavStopTrack(SimVoices[v].track);
   }
   // volume, fade, reporting and the rest are accepted silently
@@ -970,8 +973,8 @@ static void LiveFrame() {
   for (int sw = 0; sw < SIM_NUM_SWITCHES; sw++) if (SwitchState[sw]) { o += (first ? "" : ","); o += std::to_string(sw); first = false; }
   o += "],\"fired\":[";
   for (size_t k = 0; k < LiveFired.size(); k++) o += (k ? "," : "") + std::to_string(LiveFired[k]);
-  o += "],\"sounds\":[";
-  for (size_t k = 0; k < LiveSounds.size(); k++) o += (k ? "," : "") + std::to_string(LiveSounds[k]);
+  o += "],\"audio\":[";
+  for (size_t k = 0; k < LiveAudio.size(); k++) o += (k ? "," : "") + LiveAudio[k];
   o += "],\"log\":[";
   for (size_t k = LiveLogFrom; k < SimLog.size(); k++) {
     if (SimLog[k].find(" LAMP ") != std::string::npos) continue;
@@ -980,7 +983,7 @@ static void LiveFrame() {
   o += "]}";
   if (o.find("[,") != std::string::npos) o.replace(o.find("[,"), 2, "[");
   LiveLogFrom = SimLog.size();
-  LiveFired.clear(); LiveSounds.clear();
+  LiveFired.clear(); LiveAudio.clear();
   printf("%s\n", o.c_str());
   fflush(stdout);
 }
