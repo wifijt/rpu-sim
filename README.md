@@ -2,17 +2,22 @@
 
 ![Star Trek 2022 running in rpu-sim: backglass, playfield with lamps lit, watch and lamp panels](docs/screenshot.jpg)
 
-Play and test a RetroPinUpgrade (RPU) game on your Mac, with no Mega and no machine. You get the
-backglass, the playfield with its lamps lighting, switches you click, coils firing and the game's
-own sounds. Edit your game, run it again, and see what it does.
+Run a RetroPinUpgrade (RPU) game on your Mac, with no Mega and no machine. Your game's own code is
+built into a Mac program that runs in two modes:
+
+- **Scenarios (headless).** `run.sh` plays a text file of switch hits, waits and checks against the
+  game, and prints `PASS` or `FAIL` with the line that failed, and a log of everything the game did.
+  For testing: repeatable, and a long game takes seconds.
+- **Play (browser).** `play.py` runs the game in real time behind a page with the backglass, the
+  playfield with its lamps lighting, switches you click, coils firing and the game's own sounds.
+  For trying things out by hand.
 
 ## How it works
 
 ```
-your game (.ino, .cpp) ──clang++──▶ build/<game>/sim ◀──play.py──▶ the page in your browser
-                                    your game's own code,          lamps, displays, sounds;
-                                    sim_core.cpp in place          your clicks go back
-                                    of the hardware
+                                                      ┌─ run.sh <scenario.sim> ─▶ PASS / FAIL + log
+your game (.ino, .cpp) ──clang++──▶ build/<game>/sim ─┤
+                                                      └─ play.py ◀──▶ the page in your browser
 ```
 
 `sim_core.cpp` stands in for `RPU.cpp` (switches, lamps, displays, coils), the Arduino core, the WAV
@@ -33,7 +38,45 @@ rpu-sim runs on a Mac.
 3. In the IDE's Library Manager: **RPUMachines**, and **PinNode** if your game uses it.
 4. `git clone https://github.com/wifijt/rpu-sim`
 
-## Play a game
+## Run scenarios (headless)
+
+Try it with Dick's ExampleMachine (the folder must have the sketch's name):
+
+```bash
+cd rpu-sim
+git clone https://github.com/RetroPinUpgrade/ExampleMachine ../ExampleMachineMEGA
+./run.sh ../ExampleMachineMEGA examples/ExampleMachine/01-start-a-game.sim
+# PASS examples/ExampleMachine/01-start-a-game.sim  (5 checks, 74110 ms simulated, ...)
+```
+
+A scenario is a text file: one command per line.
+
+```
+# the playfield's physics: which coil opens which switch
+include machine.sim
+# power on and settle into attract, then press Start
+run 3000
+press SW_CREDIT_RESET
+run 3000
+# the ball was served
+expect SOL fire SOL_OUTHOLE
+check ball == 1
+press SW_POP_BUMPER
+check score 1 >= 1
+```
+
+```bash
+./run.sh ~/src/MyGame MyGame/sim/01-start.sim          # build, run: PASS, or FAIL and the line
+./build/MyGame/sim -v MyGame/sim/01-start.sim          # again, with the whole log
+```
+
+Time is game time: `run 60000` takes a moment, not a minute. The log shows every switch, coil and
+sound with its time. `examples/` has scenarios for Dick's
+[ExampleMachine](https://github.com/RetroPinUpgrade/ExampleMachine) and for
+[PinNode-Example](https://github.com/pin-node/PinNode-Example). All the commands and checks are in
+[docs/SCENARIOS.md](docs/SCENARIOS.md).
+
+## Play a game (browser)
 
 ```bash
 cd rpu-sim
@@ -107,16 +150,6 @@ hand and sometimes number a lamp differently, so check the ones it disagrees abo
 **Dick Hamill's [Lamp Animator](https://pinballrefresh.com/animation-generator)** generates lamp
 animations. In **Edit layout**, **Export** saves your playfield picture and lamp positions in its
 format, so you can skip mapping lamps there. **Import** reads positions saved from it.
-
-**Scenarios** are scripted tests: switch hits, time passing, and checks on what the game did.
-
-```bash
-./run.sh ~/src/MyGame MyGame/sim/01-start.sim    # prints PASS, or FAIL and the line
-```
-
-See [docs/SCENARIOS.md](docs/SCENARIOS.md). `examples/` has scenarios for Dick's
-[ExampleMachine](https://github.com/RetroPinUpgrade/ExampleMachine) and for
-[PinNode-Example](https://github.com/pin-node/PinNode-Example).
 
 ## Where things are
 
