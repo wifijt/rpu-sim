@@ -67,8 +67,9 @@ check score 1 >= 1
 ```
 
 ```bash
-./run.sh ~/src/MyGame MyGame/sim/01-start.sim          # build, run: PASS, or FAIL and the line
-./build/MyGame/sim -v MyGame/sim/01-start.sim          # again, with the whole log
+./run.sh <your game's folder> <scenario.sim>     # build and run: PASS, or FAIL and the line
+./build/<game>/sim -v <scenario.sim>             # run it again, with the whole log
+./build/ExampleMachineMEGA/sim -v examples/ExampleMachine/01-start-a-game.sim     # for example
 ```
 
 Time is game time: `run 60000` takes a moment, not a minute. The log shows every switch, coil and
@@ -77,18 +78,25 @@ checks are in [docs/SCENARIOS.md](docs/SCENARIOS.md).
 
 ## Play a game (browser)
 
+Try it with ExampleMachine (cloned in the scenario try-it above). It has no playfield layout, so
+give it its physics file and play it from the Switches and Lamps lists:
+
 ```bash
 cd rpu-sim
-./play.py ~/src/StarTrek2022 --image ~/Pictures/startrek-playfield.jpg --sounds ~/Sounds/StarTrek2022
-```
-
-It builds the game (about 30 s), runs it, and opens http://localhost:8765.
-
-ExampleMachine has no layout, so give it its physics file; you play it from the Switches and Lamps lists:
-
-```bash
 ./play.py ../ExampleMachineMEGA --physics examples/ExampleMachine/machine.sim
 ```
+
+It builds the game (about 30 s), runs it, and opens http://localhost:8765. Coin (`5`), Start (`1`),
+then click switches.
+
+Your own game, with its playfield picture and sounds:
+
+```bash
+./play.py <your game's folder> --image <playfield picture> --sounds <WAV Trigger folder>
+```
+
+A machine with a layout in RPUMachines (Bally Star Trek so far) shows its switches, lamps and coils
+on the playfield. For anything else, see Add a machine.
 
 | Option | |
 |---|---|
