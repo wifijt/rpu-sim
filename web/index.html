@@ -302,10 +302,6 @@ function drawPlayfield() {
       mk("rect", { x: 0, y: 0, width: W, height: H, fill: "none", stroke: "#ffcf4a", "stroke-width": 3, "stroke-dasharray": "12 8", "pointer-events": "none" });
       alignHandles(svg, mk, img, W, H);
     }
-  } else if (bgMode === "manual") {             // the manual's drawing, scaled so its playfield fills the view
-    const [l, t, r, b] = L.manual.frame, iw = W / (r - l), ih = H / (b - t);
-    mk("image", { href: "/background.png", x: -l * iw, y: -t * ih, width: iw, height: ih, preserveAspectRatio: "none", "clip-path": "url(#pfclip)" });
-    svg.classList.add("drawn");
   } else {
     mk("path", { d: `M10 ${H - 10} L10 500 A490 490 0 0 1 990 500 L990 ${H - 10} Z`, class: "pf-outline" });
   }
@@ -413,7 +409,7 @@ $("#editbtn").onclick = () => {
   if (editMode) {
     fillPlaceList(); showSelected();
     $("#saveto").textContent = setup.saveTo ? "Saves to " + setup.saveTo : "Start play.py with --machine to save.";
-    if (setup.crop && !$("#animW").value) { $("#animW").value = setup.crop.w; $("#animH").value = setup.crop.h; }
+    if (!$("#animW").value) { const [w, h] = exportSize(); $("#animW").value = w; $("#animH").value = h; }
   }
   drawPlayfield();
 };
@@ -424,7 +420,16 @@ $("#save").onclick = async () => {
 window.addEventListener("beforeunload", e => { if (dirty) e.preventDefault(); });
 
 // ---- Dick Hamill's Lamp Animator: {x,y} per lamp number, in pixels of the image it was mapped on
-function animSize() { return [+$("#animW").value || (setup.crop && setup.crop.w) || 1000, +$("#animH").value || (setup.crop && setup.crop.h) || 2000]; }
+// the export image: your picture cropped to the playfield, 800 px wide (or a blank size without a picture)
+function exportSize() { const [W, H] = dims(); return [800, Math.round(800 * H / W)]; }
+function animSize() { const d = exportSize(); return [+$("#animW").value || d[0], +$("#animH").value || d[1]]; }
+async function playfieldPng(w, h) {
+  const img = new Image(); img.src = "/pfimage"; await img.decode();
+  const [x0, y0, x1, y1] = setup.image.rect;                  // where the picture sits, in playfield fractions
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  c.getContext("2d").drawImage(img, x0 * w, y0 * h, (x1 - x0) * w, (y1 - y0) * h);
+  return new Promise(r => c.toBlob(r, "image/png"));
+}
 function download(name, blob) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
 $("#animExport").onclick = async () => {
   const [w, h] = animSize(), lamps = setup.layout.items.filter(i => i.kind === "lamp");
@@ -433,8 +438,8 @@ $("#animExport").onclick = async () => {
   const lines = [];
   for (let n = 0; n <= max; n++) { const l = lamps.find(x => x.n === n); lines.push(l ? `{${Math.round(l.x * w)},${Math.round(l.y * h)}}` : "{0,0}"); }
   download(`${setup.machine || "machine"}-lamps.txt`, new Blob([lines.join(",\n") + "\n"], { type: "text/plain" }));
-  if (setup.crop) download(`${setup.machine || "machine"}-playfield.png`, await (await fetch("/playfield.png")).blob());
-  $("#editmsg").textContent = setup.crop ? `exported ${lamps.length} lamps and the ${w}×${h} playfield image` : `exported ${lamps.length} lamps (start with --manual to export the image too)`;
+  if (setup.image) download(`${setup.machine || "machine"}-playfield.png`, await playfieldPng(w, h));
+  $("#editmsg").textContent = setup.image ? `exported ${lamps.length} lamps and the ${w}×${h} playfield image` : `exported ${lamps.length} lamps (start with --image to export a picture too)`;
 };
 $("#animImport").onclick = () => {
   const [w, h] = animSize(), re = /\{\s*(\d+)\s*,\s*(\d+)\s*\}/g, items = setup.layout.items;
@@ -647,16 +652,16 @@ function headerHeight() { document.documentElement.style.setProperty("--header-h
 headerHeight(); addEventListener("resize", headerHeight);
 setTimeout(() => { const left = $("#left"), pf = document.querySelector("#left .panel.pf"); left.scrollTop = pf.offsetTop - left.offsetTop; }, 300);
 
-// ---- background choice (your picture, the manual's drawing, or plain shapes) and image alignment
+// ---- background choice (your picture, or plain shapes) and image alignment
 let aligning = false;
-function bgOptions() { return [setup.image && "image", setup.background && setup.layout.manual && "manual", "plain"].filter(Boolean); }
+function bgOptions() { return [setup.image && "image", "plain"].filter(Boolean); }
 function bgChoice() {
   const opts = bgOptions();
   let c = null; try { c = localStorage.getItem("rpusim.bg"); } catch (e) {}
   return opts.includes(c) ? c : opts[0];
 }
 function setupBackgroundControls() {
-  const opts = bgOptions(), sel = $("#bgsel"), names = { image: "Your picture", manual: "Manual drawing", plain: "Plain" };
+  const opts = bgOptions(), sel = $("#bgsel"), names = { image: "Your picture", plain: "Plain" };
   sel.hidden = opts.length < 2;
   sel.innerHTML = opts.map(o => `<option value="${o}">${names[o]}</option>`).join(""); sel.value = bgChoice();
   sel.onchange = () => { try { localStorage.setItem("rpusim.bg", sel.value); } catch (e) {} aligning = false; drawPlayfield(); alignButton(); };

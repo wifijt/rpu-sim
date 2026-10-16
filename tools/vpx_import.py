@@ -108,7 +108,7 @@ def main():
                for n, (x, y, _) in switches.items() if n in have_sw]
         for n, nm, d in sorted(far, key=lambda r: -r[2])[:5]:
             if d > 6:
-                print(f"  switch {n} {nm}: {d:.0f}% of the width from the layout's hotspot (fine if the hotspot sits on the manual's number label)")
+                print(f"  switch {n} {nm}: {d:.0f}% of the width from the layout's hotspot (check it)")
 
     have = {i["n"]: i for i in items if i["kind"] == "lamp"}
     added = moved = 0

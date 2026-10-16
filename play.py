@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Play an RPU game in your browser: no Mega, no machine.
 
-    ./play.py path/to/MyGame [--machine bally-star-trek-1979] [--manual manual.pdf] [--port 8765]
+    ./play.py path/to/MyGame [--image playfield.jpg] [--sounds folder] [--machine bally-star-trek-1979] [--port 8765]
 
 Builds the game (build.sh), runs it in real time (sim --live), and serves a page at
 http://localhost:8765 with the backglass displays, the playfield, the lamps, and switches you click.
@@ -9,7 +9,7 @@ Keys: 1 Start, 5 Coin, Space or Enter drain. --sounds plays the game's WAV files
 
 The machine (its names and its layout) comes from RPUMachines: the library folder in MACHINES_LIB,
 or the one the Arduino IDE installed. Without --machine it's the machine header the game includes.
-Saved layouts go back into RPUMachines when MACHINES_LIB is a git clone, else into machines/<id>/.
+Saved layouts go to ~/Documents/rpu-sim/layouts, or into RPUMachines when MACHINES_LIB is a git clone.
 """
 import argparse, json, os, queue, subprocess, sys, threading, webbrowser
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -19,7 +19,6 @@ HERE = Path(__file__).resolve().parent
 ap = argparse.ArgumentParser()
 ap.add_argument("sketch")
 ap.add_argument("--machine", help="the machine's id in RPUMachines (e.g. bally-star-trek-1979), or a folder with layout.json")
-ap.add_argument("--manual", help="your copy of the machine's manual (PDF): its playfield drawing becomes the background")
 ap.add_argument("--image", help="a picture of the playfield (e.g. extracted from a VPX table) to use as the background; line it up once with Align image")
 ap.add_argument("--sounds", help="the game's WAV Trigger folder (files named by track number: 0201_x.wav, 201.wav); your browser plays them")
 ap.add_argument("--watch", help="game variables to show live, e.g. GameMode,BonusX (remembered for next time)")
@@ -67,7 +66,6 @@ for cand in ([mdir / "layout.json"] if legacy else []) + [local_layouts / f"{mid
     if cand.exists():
         layout, layout_path = json.loads(cand.read_text()), cand
         break
-# where a saved layout goes: back into RPUMachines if that's a git clone, else next to the sim
 # where a saved layout goes: straight into RPUMachines if that's a git clone (ready for a pull request),
 # else your local layouts folder (copy it into RPUMachines to contribute it)
 save_path = (mdir / "layout.json") if legacy else (lib / "layouts" / f"{mid}.json") if (lib / ".git").exists() else (local_layouts / f"{mid}.json")
@@ -113,21 +111,6 @@ if a.sounds:
                 pass
     sim.stdin.flush()
     print(f"sounds: {len(sounds)} tracks from {a.sounds}")
-background = None                                 # the manual's playfield, rendered here, never stored in the repo
-crop = None                                       # the playfield alone, for the Lamp Animator export
-if a.manual and layout.get("manual"):
-    out = HERE / "build" / sketch.name
-    out.mkdir(parents=True, exist_ok=True)
-    m, pdf = layout["manual"], str(Path(a.manual).resolve())
-    render = ["swift", str(HERE / "tools" / "render_page.swift"), pdf, str(m["page"])]
-    if subprocess.call(render + [str(out / "manual-page.png"), "3"]) == 0:
-        background = (out / "manual-page.png").read_bytes()
-        r = subprocess.run(render + [str(out / "playfield.png"), "2"] + [str(v) for v in m["frame"]], capture_output=True, text=True)
-        if r.returncode == 0:
-            w, h = (int(v) for v in r.stdout.split()[:2])
-            crop = {"png": (out / "playfield.png").read_bytes(), "w": w, "h": h}
-    else:
-        print("couldn't render the manual page; using the plain drawing")
 pfimage = None                                    # your own playfield picture: stays on your Mac, alignment saved beside it
 if a.image:
     ip = Path(a.image).expanduser().resolve()
@@ -174,9 +157,8 @@ class H(BaseHTTPRequestHandler):
             self.send(200, (HERE / "web" / "index.html").read_bytes(), "text/html; charset=utf-8")
         elif self.path == "/setup":
             self.send(200, json.dumps({"names": names, "layout": layout, "labels": labels, "game": sketch.name,
-                                       "background": background is not None, "machine": mid,
+                                       "machine": mid,
                                        "saveTo": str(save_path) if save_path else None,
-                                       "crop": {"w": crop["w"], "h": crop["h"]} if crop else None,
                                        "sounds": sorted(sounds), "watch": watch,
                                        "image": pfimage["align"] if pfimage else None}).encode(), "application/json")
         elif self.path.startswith("/pfimage") and pfimage:
@@ -190,10 +172,6 @@ class H(BaseHTTPRequestHandler):
                 self.send(200, f.read_bytes(), "audio/wav")
             else:
                 self.send(404, b"no such track", "text/plain")
-        elif self.path == "/playfield.png" and crop:
-            self.send(200, crop["png"], "image/png")
-        elif self.path == "/background.png" and background:
-            self.send(200, background, "image/png")
         elif self.path == "/events":
             self.send_response(200); self.send_header("Content-Type", "text/event-stream"); self.send_header("Cache-Control", "no-store"); self.end_headers()
             q = queue.Queue(maxsize=200)
