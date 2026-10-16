@@ -112,6 +112,10 @@ is the playfield: the page is rendered on your Mac, and the switches and coils s
 parts. Without it you get a plain drawing of the same positions. The drawing is never stored
 anywhere: RPUMachines keeps only the page number and the positions.
 
+**Zoom:** the playfield bar has **Fit** (all of it), **Width** (fills the width; scroll up and down),
+and **−** / **+**; ⌘-scroll or a trackpad pinch zooms where you point. The divider between the
+playfield and the panels drags (double-click: back to 50/50).
+
 **Edit layout** (top of the page): drag any switch, coil or lamp on the playfield; drag a lamp or
 switch from the lists onto its spot to place it (or pick one and click where it sits); click one to
 select it, then **Remove** (or Delete) takes it off and **+** / **−** resize it.

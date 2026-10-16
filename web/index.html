@@ -24,8 +24,12 @@
   body { display: flex; flex-direction: column; overflow: hidden; }
   main { flex: 1; min-height: 0; display: grid; grid-template-columns: var(--left, 50%) 10px minmax(280px, 1fr); gap: 6px; padding: 16px; }
   #left { display: flex; flex-direction: column; min-height: 0; min-width: 280px; }
-  #left .panel.pf { flex: 1; min-height: 0; display: flex; justify-content: center; }
-  #left .panel.pf svg { width: 100%; height: 100%; }
+  #left .panel.pf { flex: 1; min-height: 0; position: relative; padding: 0; display: flex; flex-direction: column; }
+  #pfscroll { flex: 1; min-height: 0; overflow: auto; padding: 8px; }
+  #pfscroll svg { margin: 0 auto; }
+  #zoombar { display: flex; gap: 4px; align-items: center; padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--dim); }
+  #zoombar button { padding: 2px 9px; font-size: 13px; }
+  #zoombar .on { border-color: var(--dim); color: var(--text); }
   #divider { cursor: col-resize; border-radius: 4px; background: var(--line); opacity: .4; }
   #divider:hover, #divider.drag { opacity: 1; background: var(--dim); }
   #info span { font-variant-numeric: tabular-nums; }
@@ -33,7 +37,7 @@
   @media (max-width: 860px) {
     body { overflow: auto; display: block; }
     main { grid-template-columns: 1fr; } #divider { display: none; }
-    #left .panel.pf svg { height: auto; width: 100%; }
+    #pfscroll { max-height: 80vh; }
     .side { overflow: visible; }
   }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
@@ -104,7 +108,14 @@
   <div id="left">
     <div id="backglass"></div>
     <div id="info"></div>
-    <div class="panel pf"><svg id="pf"></svg></div>
+    <div class="panel pf">
+      <div id="zoombar"><span>Playfield</span><span style="flex:1"></span>
+        <button id="zfit" title="The whole playfield in view">Fit</button>
+        <button id="zwidth" title="Fill the width; scroll up and down">Width</button>
+        <button id="zout" title="Zoom out (⌘-scroll)">−</button><span id="zpct" style="min-width:4ch;text-align:center">100%</span><button id="zin" title="Zoom in (⌘-scroll)">+</button>
+      </div>
+      <div id="pfscroll"><svg id="pf"></svg></div>
+    </div>
   </div>
   <div id="divider" title="Drag to resize"></div>
   <div class="side">
@@ -249,6 +260,7 @@ function drawPlayfield() {
   } else {
     mk("path", { d: `M10 ${H - 10} L10 500 A490 490 0 0 1 990 500 L990 ${H - 10} Z`, class: "pf-outline" });
   }
+  requestAnimationFrame(pfSize);
   if (!L.items) { mk("text", { x: 500, y: 500, "text-anchor": "middle", fill: "#7c8392", "font-size": 36 }).textContent = "No layout: use --machine"; return; }
   for (const it of bg ? [] : L.items) {
     const x = it.x * W, y = it.y * H;
@@ -542,6 +554,45 @@ function showWatch(w) {
   });
   div.addEventListener("dblclick", () => { main.style.setProperty("--left", "50%"); try { localStorage.setItem("rpusim.left", "50%"); } catch (e) {} });
 })();
+
+// ---- playfield zoom: fit, fit width, or zoomed; the playfield panel scrolls when it's bigger than the view
+let zoom = { mode: "fit", scale: 1 };
+try { const z = JSON.parse(localStorage.getItem("rpusim.zoom") || "null"); if (z) zoom = z; } catch (e) {}
+function pfSize() {
+  const box = $("#pfscroll"), svg = $("#pf"), vb = svg.viewBox.baseVal;
+  if (!vb || !vb.width) return;
+  const aw = box.clientWidth - 16, ah = box.clientHeight - 16;
+  const fit = Math.min(aw / vb.width, ah / vb.height), fitW = aw / vb.width;
+  const k = zoom.mode === "fit" ? fit : zoom.mode === "width" ? fitW : fit * zoom.scale;
+  svg.style.width = Math.round(vb.width * k) + "px"; svg.style.height = Math.round(vb.height * k) + "px";
+  $("#zpct").textContent = Math.round(k / fit * 100) + "%";
+  $("#zfit").classList.toggle("on", zoom.mode === "fit"); $("#zwidth").classList.toggle("on", zoom.mode === "width");
+  try { localStorage.setItem("rpusim.zoom", JSON.stringify(zoom)); } catch (e) {}
+}
+function currentScale() {                          // the zoom as a multiple of "fit", whatever the mode
+  const box = $("#pfscroll"), vb = $("#pf").viewBox.baseVal;
+  const fit = Math.min((box.clientWidth - 16) / vb.width, (box.clientHeight - 16) / vb.height);
+  return parseFloat($("#pf").style.width) / vb.width / fit || 1;
+}
+function zoomTo(scale, cx, cy) {                    // keep the point under (cx, cy) in place
+  const box = $("#pfscroll"), r = box.getBoundingClientRect();
+  const fx = cx === undefined ? 0.5 : (cx - r.left + box.scrollLeft) / box.scrollWidth;
+  const fy = cy === undefined ? 0.5 : (cy - r.top + box.scrollTop) / box.scrollHeight;
+  zoom = { mode: "zoom", scale: Math.min(8, Math.max(0.5, scale)) };
+  pfSize();
+  box.scrollLeft = fx * box.scrollWidth - (cx === undefined ? box.clientWidth / 2 : cx - r.left);
+  box.scrollTop = fy * box.scrollHeight - (cy === undefined ? box.clientHeight / 2 : cy - r.top);
+}
+$("#zfit").onclick = () => { zoom = { mode: "fit", scale: 1 }; pfSize(); };
+$("#zwidth").onclick = () => { zoom = { mode: "width", scale: 1 }; pfSize(); $("#pfscroll").scrollTop = 0; };
+$("#zin").onclick = () => zoomTo(currentScale() * 1.25);
+$("#zout").onclick = () => zoomTo(currentScale() / 1.25);
+$("#pfscroll").addEventListener("wheel", e => {
+  if (!e.ctrlKey && !e.metaKey) return;              // ⌘-scroll, or a trackpad pinch (which arrives as ctrl+wheel)
+  e.preventDefault();
+  zoomTo(currentScale() * Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
+}, { passive: false });
+new ResizeObserver(() => pfSize()).observe($("#pfscroll"));
 
 function frame(f) {
   if (f.error) { addLog(`ERROR ${f.error}`, "err"); return; }
