@@ -113,7 +113,7 @@ parts. Without it you get a plain drawing of the same positions. The drawing is 
 anywhere: RPUMachines keeps only the page number and the positions.
 
 **Edit layout** (top of the page): drag any switch, coil or lamp on the playfield; drag a lamp or
-switch from the lists onto its spot to place it (or pick one and click where it sits); Option-click removes one; **+** / **−** resize the last one you touched.
+switch from the lists onto its spot to place it (or pick one and click where it sits); one; click one to select it, then **Remove** (or Delete) takes it off and **+** / **−** resize it.
 **Save layout** writes it back into RPUMachines when `MACHINES_LIB` is a git clone of it (send it
 as a pull request), or into `machines/<machine>/layout.json` here.
 

@@ -44,6 +44,7 @@
   svg.editing .sw, svg.editing .lampdot { cursor: move; }
   svg.editing .lampdot { stroke: #ffcf4a; fill: #ffcf4a33; }
   svg.editing { cursor: crosshair; }
+  svg.editing .selected { stroke: #fff !important; stroke-width: 5 !important; }
   svg.drawn .lampdot.on { fill: #ffcf4acc; }
   .coil { fill: #0000; stroke: #ff5a4a55; stroke-width: 3; pointer-events: none; }
   .coil.hit { fill: var(--coil); }
@@ -86,12 +87,15 @@
     <div class="panel" id="editor" hidden>
       <h2>Edit layout</h2>
       <p style="margin:0 0 8px;color:var(--dim)">Drag anything on the playfield to move it. To place one, <b>drag it from the Lamps or
-        Switches list</b> onto its spot (✓ marks the placed ones), or pick it here and click where it sits. <b>Option-click</b> removes one. <b>+</b> / <b>−</b> resize the last one you touched.</p>
+        Switches list</b> onto its spot (✓ marks the placed ones), or pick it here and click where it sits. Click one to select it: <b>Remove</b> (or the Delete key) takes it off, <b>+</b> / <b>−</b> resize it.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <select id="placeKind"><option value="lamp">Lamp</option><option value="switch">Switch</option><option value="coil">Coil</option></select>
         <select id="placeWhat" style="max-width:260px"></select>
         <select id="placeShape" title="Switch shape"><option>dot</option><option>target</option><option>drop</option><option>lane</option><option>button</option><option>rubber</option><option>hole</option><option>saucer</option></select>
         <button id="save">Save layout</button> <span id="editmsg" style="color:var(--dim)"></span>
+      </div>
+      <div id="selbar" style="margin-top:8px;display:flex;gap:8px;align-items:center" hidden>
+        <span>Selected: <b id="selname"></b></span><button id="selremove">Remove <kbd>Delete</kbd></button>
       </div>
       <p id="saveto" style="margin:8px 0 0;color:var(--dim);font-size:12px"></p>
       <h2 style="margin-top:14px">Dick Hamill's Lamp Animator</h2>
@@ -226,14 +230,34 @@ function svgPoint(e) {
 }
 function dims() { const L = setup.layout; return [1000, Math.round(1000 * (L.aspect || 2.1))]; }
 function editable(el, it) {
+  Object.defineProperty(it, "el", { value: el, writable: true, configurable: true, enumerable: false });
+  if (it === lastTouched) el.classList.add("selected");
   el.addEventListener("mousedown", e => {
     if (!editMode) return;
     e.preventDefault(); e.stopPropagation();
-    if (e.altKey) { setup.layout.items.splice(setup.layout.items.indexOf(it), 1); touched(null); drawPlayfield(); markPlaced(); return; }
+    if (e.altKey) { lastTouched = it; removeSelected(); return; }
     dragging = { it }; touched(it);
   });
 }
-function touched(it) { lastTouched = it; dirty = true; $("#editmsg").textContent = "not saved"; }
+function touched(it) { lastTouched = it; dirty = true; $("#editmsg").textContent = "not saved"; showSelected(); }
+function selectedName(it) {
+  const k = { lamp: ["lamps", "LAMP_", "Lamp"], switch: ["switches", "SW_", "Switch"], coil: ["solenoids", "SOL_", "Coil"] }[it.kind];
+  return k ? `${k[2]} ${it.n} · ${label(k[0], it.n, k[1])}` : it.kind;
+}
+function showSelected() {
+  const it = lastTouched;
+  $("#selbar").hidden = !(editMode && it && setup.layout.items.includes(it));
+  if (!$("#selbar").hidden) $("#selname").textContent = selectedName(it);
+  document.querySelectorAll("#pf .selected").forEach(e => e.classList.remove("selected"));
+  if (it) (it.el && it.el.classList.add("selected"));
+}
+function removeSelected() {
+  const it = lastTouched, i = setup.layout.items.indexOf(it);
+  if (i < 0) return;
+  setup.layout.items.splice(i, 1); lastTouched = null; dirty = true; $("#editmsg").textContent = "not saved";
+  drawPlayfield(); markPlaced(); fillPlaceList(); showSelected();
+}
+$("#selremove").onclick = removeSelected;
 document.addEventListener("mousemove", e => {
   if (!dragging) return;
   const [W, H] = dims(), p = svgPoint(e);
@@ -244,6 +268,7 @@ document.addEventListener("mousemove", e => {
 document.addEventListener("mouseup", () => { dragging = null; });
 document.addEventListener("keydown", e => {
   if (!editMode || !lastTouched || e.target !== document.body) return;
+  if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); removeSelected(); return; }
   if (e.key === "+" || e.key === "=" || e.key === "-") {
     const it = lastTouched, step = e.key === "-" ? 0.85 : 1.18;
     it.r = +(((it.r || (it.kind === "lamp" ? 0.018 : 0.016)) * step)).toFixed(4); touched(it); drawPlayfield();
@@ -262,16 +287,18 @@ $("#placeKind").onchange = fillPlaceList;
 $("#pf").addEventListener("mousedown", e => {
   if (!editMode || e.target.closest(".sw,.coil,.lampdot")) return;
   const [W, H] = dims(), p = svgPoint(e), kind = $("#placeKind").value, n = +$("#placeWhat").value;
-  const it = { kind, n, x: +(p.x / W).toFixed(4), y: +(p.y / H).toFixed(4) };
-  if (kind === "switch") it.shape = $("#placeShape").value;
-  setup.layout.items.push(it); touched(it); drawPlayfield(); markPlaced();
+  const x = +(p.x / W).toFixed(4), y = +(p.y / H).toFixed(4);
+  let it = kind === "lamp" ? setup.layout.items.find(i => i.kind === "lamp" && i.n === n) : null;   // a lamp has one place
+  if (it) { it.x = x; it.y = y; }
+  else { it = { kind, n, x, y }; if (kind === "switch") it.shape = $("#placeShape").value; setup.layout.items.push(it); }
+  touched(it); drawPlayfield(); markPlaced();
   const sel = $("#placeWhat"); fillPlaceList(); sel.selectedIndex = Math.min([...sel.options].findIndex(o => +o.value === n) + 1, sel.options.length - 1);
 });
 $("#editbtn").onclick = () => {
   editMode = !editMode; $("#editor").hidden = !editMode; $("#editbtn").textContent = editMode ? "Done editing" : "Edit layout";
   document.body.classList.toggle("editing", editMode); markPlaced();
   if (editMode) {
-    fillPlaceList();
+    fillPlaceList(); showSelected();
     $("#saveto").textContent = setup.saveTo ? "Saves to " + setup.saveTo : "Start play.py with --machine to save.";
     if (setup.crop && !$("#animW").value) { $("#animW").value = setup.crop.w; $("#animH").value = setup.crop.h; }
   }
