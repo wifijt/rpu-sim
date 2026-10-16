@@ -123,6 +123,12 @@ picture's corners (or the picture) until the drawn parts sit under the switches;
 saved next to the picture (`playfield.png.align.json`). The **Background** menu switches between
 your picture, the manual's drawing and plain shapes. The picture never leaves your Mac.
 
+**Lamps from a Visual Pinball table:** `tools/vpx_import.py path/to/extracted-table` reads the
+table's lights and switches (named in PinMAME's numbering), turns them into RPU numbers, lines the
+table up with your layout, and reports where it agrees and disagrees with what you placed.
+`--write` adds the lamps you haven't placed (yours are kept); `--replace` moves yours too. Tables
+are hand-made and sometimes number a lamp differently, so check its disagreements.
+
 **Edit layout** (top of the page): drag any switch, coil or lamp on the playfield; drag a lamp or
 switch from the lists onto its spot to place it (or pick one and click where it sits); click one to
 select it, then **Remove** (or Delete) takes it off and **+** / **−** resize it.
