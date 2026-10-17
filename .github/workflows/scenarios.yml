@@ -1,0 +1,47 @@
+# Build Dick's ExampleMachine with rpu-sim and run its scenario, on Linux, Windows and macOS.
+# ExampleMachine is pinned: move EXAMPLE_REF when rpu-sim gains a newer RPU's features.
+name: scenarios
+on:
+  pull_request:
+  push:
+    branches: [main]
+env:
+  EXAMPLE_REF: 55b88eb   # RPU 5.16 (lamp overlays)
+jobs:
+  scenarios:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: rpu-sim
+      - uses: actions/checkout@v4
+        with:
+          repository: RetroPinUpgrade/ExampleMachine
+          ref: ${{ env.EXAMPLE_REF }}
+          path: ExampleMachineMEGA
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Arduino AVR core (for the sketch's prototypes)
+        run: arduino-cli core install arduino:avr
+      - name: Compiler (Windows: MinGW-w64 GCC, as the README says)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "C:/mingw64/bin" >> "$GITHUB_PATH"
+          echo "CXX=g++" >> "$GITHUB_ENV"
+      - name: ExampleMachine scenario
+        shell: bash
+        working-directory: rpu-sim
+        run: python run.py ../ExampleMachineMEGA examples/ExampleMachine/01-start-a-game.sim
+      - name: ExampleMachine with lamp overlays
+        shell: bash
+        working-directory: rpu-sim
+        env:
+          SIM_DEFINES: -DRPU_OS_USE_LAMP_OVERLAYS
+        run: python run.py ../ExampleMachineMEGA examples/ExampleMachine/01-start-a-game.sim
