@@ -39,7 +39,8 @@ def find_cli():
     candidates = [Path("/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli")]
     for base in (os.environ.get("ProgramFiles"), os.environ.get("LOCALAPPDATA") and Path(os.environ["LOCALAPPDATA"]) / "Programs"):
         if base:
-            candidates.append(Path(base) / "Arduino IDE" / rel / "arduino-cli.exe")
+            # the arduino.cc installer uses "Arduino IDE"; winget's package installs to "arduino-ide"
+            candidates += [Path(base) / d / rel / "arduino-cli.exe" for d in ("Arduino IDE", "arduino-ide")]
     candidates.append(Path.home() / "Applications/arduino-ide" / rel / "arduino-cli")   # Linux AppImage unpacked
     for c in candidates:
         if c.exists():

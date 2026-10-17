@@ -721,7 +721,9 @@ static void RunCommand(const std::string &line, const std::string &dir) {
   if (cmd == "include") {
     std::string f; in >> f;
     std::string savedFile = CurrentFile; int savedLine = CurrentLine;
-    RunFile(!f.empty() && f[0] == '/' ? f : dir + "/" + f);
+    // absolute: /x, \x or C:x (Windows); else relative to the including file
+    bool absolute = !f.empty() && (f[0] == '/' || f[0] == '\\' || (f.size() > 1 && f[1] == ':'));
+    RunFile(absolute ? f : dir + "/" + f);
     CurrentFile = savedFile; CurrentLine = savedLine;
   } else if (cmd == "trough") {             // trough SW_EXIT SW_NEXT ... serve SOL_X [to SW_Y] [feed SOL_Z from SW_W] [balls N]
     std::string word, key;
@@ -1000,7 +1002,8 @@ static void RunCommand(const std::string &line, const std::string &dir) {
 static void RunFile(const std::string &path) {
   std::ifstream f(path);
   if (!f) { printf("can't open %s\n", path.c_str()); exit(2); }
-  std::string dir = path.find('/') == std::string::npos ? "." : path.substr(0, path.find_last_of('/'));
+  size_t slash = path.find_last_of("/\\");    // Windows paths use either separator
+  std::string dir = slash == std::string::npos ? "." : path.substr(0, slash);
   CurrentFile = path;
   CurrentLine = 0;
   std::string line;
