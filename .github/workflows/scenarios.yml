@@ -29,7 +29,7 @@ jobs:
       - uses: arduino/setup-arduino-cli@v2
       - name: Arduino AVR core (for the sketch's prototypes)
         run: arduino-cli core install arduino:avr
-      - name: Compiler (Windows: MinGW-w64 GCC, as the README says)
+      - name: "Compiler (Windows: MinGW-w64 GCC, as the README says)"
         if: runner.os == 'Windows'
         shell: bash
         run: |
