@@ -469,6 +469,40 @@ byte RPU_ReadLampState(int lampNum) { return (lampNum >= 0 && lampNum < RPU_MAX_
 byte RPU_ReadLampDim(int lampNum) { return (lampNum >= 0 && lampNum < RPU_MAX_LAMPS) ? LampDim[lampNum] : 0; }
 int RPU_ReadLampFlash(int lampNum) { return (lampNum >= 0 && lampNum < RPU_MAX_LAMPS) ? LampFlash[lampNum] : 0; }
 
+// Lamp overlays (RPU 5.16, RPU_OS_USE_LAMP_OVERLAYS): masks over the lamps the game set, for animations
+// that sweep the playfield. An applied "off" overlay forces its lamps off, then an applied "on" overlay
+// forces its lamps on (RPU's order). Clearing one also stops applying it. RPU_ReadLampState still
+// reports what the game set; the page and "check lamp" show what the machine would.
+static bool OverlayOn[RPU_MAX_LAMPS], OverlayOff[RPU_MAX_LAMPS];
+static bool UseOverlayOn = false, UseOverlayOff = false;
+void RPU_ClearLampsOnOverlay() { UseOverlayOn = false; memset(OverlayOn, 0, sizeof(OverlayOn)); }
+void RPU_ClearLampsOffOverlay() { UseOverlayOff = false; memset(OverlayOff, 0, sizeof(OverlayOff)); }
+void RPU_AddLampToOverlay(boolean lampsOnOverlay, int lampNum) {
+  if (lampNum < 0 || lampNum >= RPU_MAX_LAMPS) return;
+  (lampsOnOverlay ? OverlayOn : OverlayOff)[lampNum] = true;
+}
+void RPU_RemoveLampFromOverlay(boolean lampsOnOverlay, int lampNum) {
+  if (lampNum < 0 || lampNum >= RPU_MAX_LAMPS) return;
+  (lampsOnOverlay ? OverlayOn : OverlayOff)[lampNum] = false;
+}
+// A byte of lamps: bank lampByte (lamps 8*lampByte ... +7), bit n = lamp 8*lampByte + n
+void RPU_AddLampByteToOverlay(boolean lampsOnOverlay, byte lampByte, byte lampValues) {
+  for (int b = 0; b < 8; b++) if (lampValues & (1 << b)) RPU_AddLampToOverlay(lampsOnOverlay, lampByte * 8 + b);
+}
+void RPU_RemoveLampByteFromOverlay(boolean lampsOnOverlay, byte lampByte, byte lampValues) {
+  for (int b = 0; b < 8; b++) if (lampValues & (1 << b)) RPU_RemoveLampFromOverlay(lampsOnOverlay, lampByte * 8 + b);
+}
+void RPU_ApplyLampsOnOverlay() { UseOverlayOn = true; }
+void RPU_ApplyLampsOffOverlay() { UseOverlayOff = true; }
+
+// What the lamp shows right now: the game's state and flashing, then the overlays
+static bool LampShown(int l) {
+  bool on = LampOn[l] && (!LampFlash[l] || (SimNow / (unsigned long)LampFlash[l]) % 2 == 0);
+  if (UseOverlayOff && OverlayOff[l]) on = false;
+  if (UseOverlayOn && OverlayOn[l]) on = true;
+  return on;
+}
+
 // ------------------------------------------------------------------ RPU: the rest
 // "bootoriginal MS": the board says the original ROM game was chosen. setup() then never
 // returns (the sketch keeps the link up while the original runs), so the fake link ends
@@ -902,7 +936,8 @@ static void RunCommand(const std::string &line, const std::string &dir) {
     } else if (what == "lamp") {            // check lamp NAME on|off|flash
       std::string lamp, want; in >> lamp >> want;
       int l = NeedName(lamp);
-      bool on = LampOn[l], flash = LampFlash[l] != 0;
+      bool overlaid = (UseOverlayOff && OverlayOff[l]) || (UseOverlayOn && OverlayOn[l]);
+      bool on = overlaid ? LampShown(l) : LampOn[l], flash = !overlaid && LampFlash[l] != 0;
       if (want == "on" && !on) Fail("%s is off", lamp.c_str());
       if (want == "off" && on) Fail("%s is on", lamp.c_str());
       if (want == "flash" && !(on && flash)) Fail("%s is not flashing", lamp.c_str());
@@ -1064,8 +1099,8 @@ static void LiveFrame() {
   }
   o += ",\"lamps\":\"";
   for (int l = 0; l < RPU_MAX_LAMPS; l++) {
-    bool on = LampOn[l] && (!LampFlash[l] || (SimNow / (unsigned long)LampFlash[l]) % 2 == 0);
-    o += on ? (LampDim[l] ? 'd' : '1') : '0';
+    bool on = LampShown(l);
+    o += on ? (LampDim[l] && LampOn[l] ? 'd' : '1') : '0';
   }
   o += "\",\"disp\":[";
   for (int d = 0; d < 5; d++) o += (d ? ",\"" : "\"") + DisplayText(d) + "\"";
