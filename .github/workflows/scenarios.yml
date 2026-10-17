@@ -6,7 +6,7 @@ on:
   push:
     branches: [main]
 env:
-  EXAMPLE_REF: 55b88eb   # RPU 5.16 (lamp overlays)
+  EXAMPLE_REF: 55b88ebf703a0e5fbd72dd01fd9b67657734de4c   # 55b88eb: RPU 5.16 (lamp overlays)
 jobs:
   scenarios:
     strategy:
