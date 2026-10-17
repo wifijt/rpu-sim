@@ -250,9 +250,9 @@ format, so you can skip mapping lamps there. **Import** reads positions saved fr
 
 ## Other computers
 
-rpu-sim runs on a Mac and on Windows (with MinGW-w64 GCC). Linux should work the same way, with
-clang++ or g++, but hasn't been tried. A port to WebAssembly, so it runs in any browser with nothing
-installed, would be welcome.
+rpu-sim runs on a Mac, on Windows (with MinGW-w64 GCC) and on Linux (clang++ or g++). Every pull
+request builds ExampleMachine and runs its scenario on all three. A port to WebAssembly, so it runs in
+any browser with nothing installed, would be welcome.
 
 ## Licence
 
