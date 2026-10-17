@@ -23,6 +23,9 @@ jobs:
           repository: RetroPinUpgrade/ExampleMachine
           ref: ${{ env.EXAMPLE_REF }}
           path: ExampleMachineMEGA
+      - name: "Linux: ExampleMachine's DisplayHandler.cpp includes RPU_config.h (the file is RPU_Config.h)"
+        if: runner.os == 'Linux'     # case-sensitive file names; remove once ExampleMachine has the fix
+        run: sed -i 's/"RPU_config.h"/"RPU_Config.h"/' ExampleMachineMEGA/DisplayHandler.cpp
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
