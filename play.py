@@ -32,7 +32,9 @@ if a.layout and not Path(a.layout).exists():
 if a.physics and not Path(a.physics).exists():
     sys.exit(f"no physics file {a.physics}")
 sketch = Path(a.sketch).resolve()
-lib = Path(os.environ.get("MACHINES_LIB") or Path.home() / "Documents/Arduino/libraries/RPUMachines")
+sys.path.insert(0, str(HERE))
+import build as simbuild      # build.py: finds arduino-cli and the Arduino libraries folder on any OS
+lib = Path(os.environ.get("MACHINES_LIB") or simbuild.libraries_dir(simbuild.find_cli()) / "RPUMachines")
 
 def machine_id():
     """--machine, or the RPUMachines header this sketch includes."""
@@ -56,12 +58,12 @@ watch = a.watch if a.watch is not None else (watch_file.read_text().strip() if w
 
 def build():
     env = dict(os.environ, SIM_WATCH=watch)
-    return subprocess.call([str(HERE / "build.sh"), str(sketch)], env=env) == 0
+    return subprocess.call([sys.executable, str(HERE / "build.py"), str(sketch)], env=env) == 0
 
 if not build():
     sys.exit("build failed")
 watch_file.write_text(watch)
-binary = HERE / "build" / sketch.name / "sim"
+binary = HERE / "build" / sketch.name / ("sim.exe" if os.name == "nt" else "sim")
 # Layouts you're working on live outside every repo; they load before RPUMachines' copy
 local_layouts = Path(os.environ.get("RPU_SIM_LAYOUTS") or Path.home() / "Documents/rpu-sim/layouts")
 layout, layout_path = {}, None

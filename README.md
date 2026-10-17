@@ -2,8 +2,8 @@
 
 ![Star Trek 2022 running in rpu-sim: backglass, playfield with lamps lit, watch and lamp panels](docs/screenshot.jpg)
 
-Run a RetroPinUpgrade (RPU) game on your Mac, with no Mega and no machine. Your game's own code is
-built into a Mac program that runs in two modes:
+Run a RetroPinUpgrade (RPU) game on your Mac or Windows PC, with no Mega and no machine. Your
+game's own code is built into a program that runs in two modes:
 
 - **Scenarios (headless).** `run.sh` plays a text file of switch hits, waits and checks against the
   game, and prints `PASS` or `FAIL` with the line that failed, and a log of everything the game did.
@@ -29,14 +29,28 @@ switch) comes from [RPUMachines](https://github.com/wifijt/RPUMachines).
 
 ## Install
 
-rpu-sim runs on a Mac.
-
+**Mac**
 1. Apple's Command Line Tools, for `clang++` (not the full Xcode app): `xcode-select --install`.
    `xcode-select -p` shows whether you already have them.
-2. The [Arduino IDE](https://www.arduino.cc/en/software). rpu-sim uses its `arduino-cli`; set
-   `ARDUINO_CLI` if yours is somewhere else. Python 3 comes with macOS.
-3. In the IDE's Library Manager: **RPUMachines**, and **PinNode** if your game uses it.
-4. `git clone https://github.com/wifijt/rpu-sim`
+2. The [Arduino IDE](https://www.arduino.cc/en/software). Python 3 comes with macOS.
+
+**Windows**
+1. The [Arduino IDE](https://www.arduino.cc/en/software). In its Boards Manager, **Arduino AVR Boards**
+   (usually installed already).
+2. Python 3: `winget install Python.Python.3.12` (or python.org: tick "Add python.exe to PATH").
+3. A C++ compiler, MinGW-w64 GCC: `winget install BrechtSanders.WinLibs.POSIX.UCRT`. In a new
+   terminal, `g++ --version` should answer.
+4. Git (Git for Windows, which Claude Code also uses).
+
+On Windows use `python` in place of `./`: `python run.py ...`, `python play.py ...`. Windows builds
+skip the sanitizers (the out-of-range checks), so a game bug that stops a Mac run may not show there.
+
+**Both**
+1. In the Arduino IDE's Library Manager: **RPUMachines**, and **PinNode** if your game uses it.
+2. `git clone https://github.com/wifijt/rpu-sim`
+
+rpu-sim finds arduino-cli where the IDE installs it and your libraries where the IDE keeps them; set
+`ARDUINO_CLI` or `CXX` (the compiler) if yours are elsewhere.
 
 ## Run scenarios (headless)
 
@@ -219,8 +233,8 @@ format, so you can skip mapping lamps there. **Import** reads positions saved fr
 | | |
 |---|---|
 | `play.py`, `web/` | The player and its page |
-| `build.sh`, `sim_core.cpp`, `mock/` | Building a game into a Mac program |
-| `run.sh`, `docs/SCENARIOS.md` | Scenarios |
+| `build.py` (`build.sh`), `sim_core.cpp`, `mock/` | Building a game into a program for your computer |
+| `run.py` (`run.sh`), `docs/SCENARIOS.md` | Scenarios |
 | `examples/ExampleMachine/` | A scenario, a physics file and a layout for Dick's ExampleMachine |
 | `tools/vpx_import.py` | Lamps from a Visual Pinball table |
 | `build/<game>/` | The built game. Safe to delete. |
@@ -236,8 +250,9 @@ format, so you can skip mapping lamps there. **Import** reads positions saved fr
 
 ## Other computers
 
-rpu-sim is Mac only. A port to Linux, Windows or WebAssembly would be welcome: the game code and
-`sim_core.cpp` are plain C++ and `play.py` is Python, so most of a port is `build.sh`.
+rpu-sim runs on a Mac and on Windows (with MinGW-w64 GCC). Linux should work the same way, with
+clang++ or g++, but hasn't been tried. A port to WebAssembly, so it runs in any browser with nothing
+installed, would be welcome.
 
 ## Licence
 

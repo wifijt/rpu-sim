@@ -69,9 +69,7 @@ class HardwareSerial {
 typedef HardwareSerial Print;   // enough of Print for code that takes a Print* to write to
 extern HardwareSerial Serial, Serial1, Serial2, Serial3;
 
-#ifndef min
-#define min(a,b) ((a)<(b)?(a):(b))
-#endif
-#ifndef max
-#define max(a,b) ((a)>(b)?(a):(b))
-#endif
+// min/max as functions, not the AVR core's macros: macros named min/max break the C++ library's own
+// headers on GCC (libstdc++, MinGW on Windows). Mixed types work as they do with the macros.
+template <class A, class B> constexpr auto min(A a, B b) -> decltype(a < b ? a : b) { return a < b ? a : b; }
+template <class A, class B> constexpr auto max(A a, B b) -> decltype(a > b ? a : b) { return a > b ? a : b; }
