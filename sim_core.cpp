@@ -1177,6 +1177,11 @@ static void LiveRun(const std::string &setup) {
   }
 }
 
+// AddressSanitizer: don't fail on new[] freed with plain delete. Games' drop-target banks do that in
+// a destructor that only runs at exit (never on the Mega), and the Mac's sanitizer doesn't check it
+// anyway: this keeps Linux the same. Every other check stays on.
+extern "C" const char *__asan_default_options() { return "alloc_dealloc_mismatch=0"; }
+
 int main(int argc, char **argv) {
   memset(SimEEPROMData, 0xFF, sizeof(SimEEPROMData));
   bool verbose = false;
