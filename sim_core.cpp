@@ -391,7 +391,12 @@ static void PluginContinuous(byte, bool) {}
 static void PluginSound(unsigned short, byte, unsigned long) {}
 #endif
 void RPU_SetContinuousSolenoid(boolean solOn, byte solNum) {
-  Log("SOL %s %s (continuous)", NameOf("SOL_", solNum).c_str(), solOn ? "on" : "off");
+  static uint32_t on = 0, known = 0;       // games set these every pass: log the changes only
+  uint32_t bit = solNum < 32 ? 1u << solNum : 0;
+  if (!(known & bit) || ((on & bit) != 0) != (bool)solOn)
+    Log("SOL %s %s (continuous)", NameOf("SOL_", solNum).c_str(), solOn ? "on" : "off");
+  known |= bit;
+  if (solOn) on |= bit; else on &= ~bit;
   PluginContinuous(solNum, solOn);
 }
 void RPU_CycleAllDisplays(unsigned long, byte) {}
