@@ -383,12 +383,26 @@ void RPU_SetDisableFlippers(boolean disableFlippers, byte) {
 }
 boolean RPU_GetDisableFlippers(byte) { return FlippersDisabled; }
 void RPU_SetContinuousSolenoidBit(boolean, byte) {}
-void RPU_SetContinuousSolenoid(boolean solOn, byte solNum) { Log("SOL %s %s (continuous)", NameOf("SOL_", solNum).c_str(), solOn ? "on" : "off"); }
+#ifdef RPU_SIM_PLUGIN                     // rpu-pinmame: the plugin passes these on to the emulator
+static void PluginContinuous(byte solNum, bool on);
+static void PluginSound(unsigned short soundNumber, byte numPushes, unsigned long when);
+#else
+static void PluginContinuous(byte, bool) {}
+static void PluginSound(unsigned short, byte, unsigned long) {}
+#endif
+void RPU_SetContinuousSolenoid(boolean solOn, byte solNum) {
+  Log("SOL %s %s (continuous)", NameOf("SOL_", solNum).c_str(), solOn ? "on" : "off");
+  PluginContinuous(solNum, solOn);
+}
 void RPU_CycleAllDisplays(unsigned long, byte) {}
 // Williams sound boards (games without a WAV Trigger): the sound number is logged, nothing plays
 void RPU_SetSoundValueLimits(unsigned short, unsigned short) {}
-void RPU_PushToSoundStack(unsigned short soundNumber, byte) { Log("SND %d", soundNumber); }
-boolean RPU_PushToTimedSoundStack(unsigned short soundNumber, byte, unsigned long) { Log("SND %d (timed)", soundNumber); return true; }
+void RPU_PushToSoundStack(unsigned short soundNumber, byte numPushes) { Log("SND %d", soundNumber); PluginSound(soundNumber, numPushes, 0); }
+boolean RPU_PushToTimedSoundStack(unsigned short soundNumber, byte numPushes, unsigned long when) {
+  Log("SND %d (timed)", soundNumber);
+  PluginSound(soundNumber, numPushes, when);
+  return true;
+}
 void RPU_UpdateTimedSoundStack(unsigned long) {}
 boolean RPU_FireContinuousSolenoid(byte, byte) { return true; }
 byte RPU_ReadContinuousSolenoids() { return 0; }
@@ -1182,6 +1196,7 @@ static void LiveRun(const std::string &setup) {
 // anyway: this keeps Linux the same. Every other check stays on.
 extern "C" const char *__asan_default_options() { return "alloc_dealloc_mismatch=0"; }
 
+#ifndef RPU_SIM_PLUGIN   // a plugin (rpu-pinmame) brings its own entry points and #includes this file
 int main(int argc, char **argv) {
   memset(SimEEPROMData, 0xFF, sizeof(SimEEPROMData));
   bool verbose = false;
@@ -1209,3 +1224,4 @@ int main(int argc, char **argv) {
          SimEEPROMWrites, SimDelayMax);
   return 0;
 }
+#endif

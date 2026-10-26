@@ -185,11 +185,19 @@ def main():
     srcs += [f for f in sorted(glob.glob(str(sketch / "*.cpp"))) if os.path.basename(f) not in ("RPU.cpp", "RPULink.cpp")]
     cxx = find_cxx()
     flags = ["-std=gnu++17", "-g", "-O1", "-w"]
+    # SIM_PLUGIN=<file.cpp>: build a shared library instead (rpu-pinmame): that file stands in for
+    # sim_core.cpp (it #includes it with RPU_SIM_PLUGIN defined) and adds the plugin's entry points
+    plugin = os.environ.get("SIM_PLUGIN", "")
+    if plugin:
+        srcs[srcs.index(str(SIM / "sim_core.cpp"))] = plugin
+        flags = ["-std=gnu++17", "-O2", "-w", "-fPIC", "-shared", "-DRPU_SIM_PLUGIN", "-I" + str(SIM)]
+        binary = Path(os.environ.get("SIM_PLUGIN_OUT", str(out / ("plugin.dll" if WINDOWS else "plugin.so"))))
     if WINDOWS:
         flags += ["-static"]          # one sim.exe, no MinGW DLLs to carry around
-    if not WINDOWS and os.environ.get("SIM_SANITIZE", "1") != "0":   # MinGW has no sanitizers
+    if not plugin and not WINDOWS and os.environ.get("SIM_SANITIZE", "1") != "0":   # MinGW has no sanitizers
         flags += ["-fsanitize=address,undefined", "-fno-sanitize-recover=undefined"]   # out-of-range reads and the like stop the run
-    binary = out / ("sim" + EXE)
+    if not plugin:
+        binary = out / ("sim" + EXE)
     cmd = shlex.split(cxx, posix=not WINDOWS) + flags + sim_flags + sim_defines.split() + ["-I" + str(SIM / "mock"), "-I" + str(out), "-I" + str(sketch)] \
         + inc_flags + srcs + ["-o", str(binary)]
     if subprocess.call(cmd) != 0:
