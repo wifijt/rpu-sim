@@ -67,6 +67,7 @@ class HardwareSerial {
     int port;
 };
 typedef HardwareSerial Print;   // enough of Print for code that takes a Print* to write to
+typedef HardwareSerial Stream;  // and of Stream (a port the game reads and writes)
 extern HardwareSerial Serial, Serial1, Serial2, Serial3;
 
 // min/max as functions, not the AVR core's macros: macros named min/max break the C++ library's own

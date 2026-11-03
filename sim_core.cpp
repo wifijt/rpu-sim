@@ -232,6 +232,10 @@ size_t HardwareSerial::write(uint8_t b) {
     else if (b != '\r') SerialLine += (char)b;
   } else if (port == 1) {
     WavByte(b);
+  } else if (port == 3) {                       // Serial3: logged a line at a time ("SER3 ...")
+    static std::string line3;
+    if (b == '\n') { if (!line3.empty()) Log("SER3 %s", line3.c_str()); line3.clear(); }
+    else if (b != '\r') line3 += (char)b;
   } else if (port == 2) {
     Log("ERROR Serial2 used: USART2 belongs to RPULink");
   }
@@ -651,6 +655,14 @@ static void DecodeRecord(byte type, const byte *d, byte len) {
       Log("%s", buf);
       break;
     }
+    case 0x3D: Log("PN SIDECAR_EVENT g=%d slot=%d code=0x%04X value=%d", rd16(d), d[2], rd16(d + 3), (int32_t)rd32(d + 5)); break;
+    case 0x3E: {
+      n = snprintf(buf, sizeof(buf), "PN SIDECAR_STATE g=%d slot=%d n=%d:", rd16(d), d[2], d[3]);
+      for (int i = 0; i < d[3] && n < 380; i++) n += snprintf(buf + n, sizeof(buf) - n, " %d=%d", d[4 + 5 * i], (int32_t)rd32(d + 5 + 5 * i));
+      Log("%s", buf);
+      break;
+    }
+    case 0x3F: Log("PN SIDECAR_TIMER g=%d slot=%d key=%d op=%d left=%u total=%u", rd16(d), d[2], d[3], d[4], rd32(d + 5), rd32(d + 9)); break;
     default: Log("PN record 0x%02X len=%d", type, len); break;
   }
 }
@@ -673,6 +685,7 @@ boolean RPULink_Queue(byte type, const byte *data, byte len) {
   return true;
 }
 boolean RPULink_Pending() { return false; }   // nothing waits here either: a record is "sent" as it is queued
+unsigned int RPULink_QueueFree() { return RPULINK_QUEUE_BYTES; }   // never full: records go as they are queued
 void RPULink_DropQueued() {}   // nothing waits here: records are logged as they are queued
 boolean RPULink_QueueText(byte type, const char *text) { return RPULink_Queue(type, (const byte *)text, (byte)strlen(text)); }
 boolean RPULink_IsUp() { return LinkUp; }
