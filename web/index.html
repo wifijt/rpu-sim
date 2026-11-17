@@ -205,6 +205,7 @@ async function start() {
     (has("SW_COIN_1") || has("SW_COIN_3")) && { label: "Coin", sw: has("SW_COIN_1") ? N.SW_COIN_1 : N.SW_COIN_3, key: "5" },
     (has("SW_TILT") || has("SW_PLUMB_TILT")) && { label: "Tilt", sw: has("SW_TILT") ? N.SW_TILT : N.SW_PLUMB_TILT, key: "t" },
     has("SW_SLAM") && { label: "Slam", sw: N.SW_SLAM },
+    { label: "Self test", sw: 127, key: "7" },   // the coin-door button: RPU.h's SW_SELF_TEST_SWITCH (0x7F), on every game
   ].filter(Boolean);
   for (const c of cab) {
     const b = document.createElement("button"); b.innerHTML = c.label + (c.key ? `<kbd>${c.key}</kbd>` : "");

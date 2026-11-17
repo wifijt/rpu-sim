@@ -126,6 +126,8 @@ on the playfield. For anything else, see Add a machine.
 **On the page**
 
 - **Start** (`1`), **Coin** (`5`), **Tilt** (`t`), **Slam**, **Drain** (`Space`): the cabinet.
+- **Self test** (`7`): the coin-door button, into the game's menus. A layout with its own `cabinet`
+  list needs `{"label": "Self test", "sw": 127, "key": "7"}` in it.
 - Click a switch, on the playfield or in the Switches list, to hit it. Shift-click holds it closed
   (a ball resting in a hole), or lets it go.
 - Lamps light on the playfield and in the Lamps list. Coils flash when they fire and make a
